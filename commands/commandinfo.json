@@ -1,0 +1,13 @@
+{
+    "fun": {
+        "descripion": "These are fun commands everyone can use"
+    },
+    "moderation": {
+        "descripion": "These are moderation commands only certain users can use",
+        "allowed-permissions": ["BAN_MEMBERS"]
+    },
+    "utility": {
+        "descripion": "These are utility commands only xacer can use",
+        "allowed-users": ["683115379899498526"]
+    }
+}
