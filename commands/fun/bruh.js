@@ -5,6 +5,7 @@ module.exports = {
     },
     async execute (context, n) {
         const { message } = context;
+        if (n < 0) n = 0;
         if (n > 50) n = 50;        
         const msg = "<:_bru:878633859867099166>" + "<:_h:879420892810186893>".repeat(n) + "<:_please:878633860055851008>";
         await message.channel.send(msg).catch(err => console.log(err.message));

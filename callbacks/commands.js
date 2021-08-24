@@ -82,8 +82,6 @@ module.exports = {
         // Extract the name from the chunks
         const commandName = commandChunks.shift().slice(2).replace(/[^a-zA-Z ]/g, "");
 
-        let canRunCommand = true;
-
         if (!commands.has(commandName)) {
             await message.reply("That command doesn't exist! D:");
             return;
@@ -95,26 +93,28 @@ module.exports = {
         const permsInfo = JSON.parse(await fs.promises.readFile("/home/pi/xacerbot/commands/commandinfo.json"));
         const commandInfo = permsInfo[cmd.category];
 
-        // Get allowed users
-        /** @type {string[]} */
-        const allowedUsers = commandInfo["allowed-users"];
-        if (allowedUsers && !allowedUsers.includes(message.author.id)) {
-            await message.reply("Only certain users can use this command.");
-            return;
-        }
-
-        // Get allowed permissions
-        /** @type {string[]} */
-        const allowedPerms = commandInfo["allowed-permissions"];
-        if (allowedPerms) {
-            let allowed = false;
-            for (const perm of allowedPerms) {
-                allowed |= message.member.permissions.has(djs.Permissions.FLAGS[perm]);
+        if (commandInfo) {
+            // Get allowed users
+            /** @type {string[]} */
+            const allowedUsers = commandInfo["allowed-users"];
+            if (allowedUsers && !allowedUsers.includes(message.author.id)) {
+                await message.reply("Only certain users can use this command.");
+                return;
             }
-            if (!allowed) {
-                await message.reply("You don't have permissions to run this command!");
-                return
-            }     
+
+            // Get allowed permissions
+            /** @type {string[]} */
+            const allowedPerms = commandInfo["allowed-permissions"];
+            if (allowedPerms) {
+                let allowed = false;
+                for (const perm of allowedPerms) {
+                    allowed |= message.member.permissions.has(djs.Permissions.FLAGS[perm]);
+                }
+                if (!allowed) {
+                    await message.reply("You don't have permissions to run this command!");
+                    return
+                }     
+            }
         }
 
         const messageContext = {

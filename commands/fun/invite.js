@@ -10,7 +10,7 @@ module.exports = {
      * @param {{client: djs.Client, commands: djs.Collection<string, object>, message: djs.Message}} context 
      * @param {String} commandName 
      */
-     async execute(context) {
+    async execute(context) {
         const {message, client} = context;
         const clientId = client.user.id;
         const permissions = 0;
