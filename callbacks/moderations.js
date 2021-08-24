@@ -56,7 +56,8 @@ module.exports = {
     data: {
         name: "moderations",
         description: "Make sure messages don't have bad words",
-        type: "message"
+        type: "message",
+        priority: 2
     },
     initialize () {
 
@@ -95,6 +96,9 @@ module.exports = {
             if (text.toLowerCase().includes(censor) && tier > maxTier) maxTier = tier;
         }
 
-        if (maxTier > 0) tierCallbacks[maxTier - 1](message, client);
+        if (maxTier > 0) { 
+            tierCallbacks[maxTier - 1](message, client); 
+            return true;
+        }
     }
 };

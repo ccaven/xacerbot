@@ -35,6 +35,8 @@ function initializeCallbacks () {
         callbacks[type].set(callback.data.name, callback);
         console.log(`Loaded ${type} callback ${filename}. Name: ${callback.data.name}`);
     }
+
+    callbacks.message.sort((a, b) => b.data.priority - a.data.priority);
 }
 
 initializeCallbacks();
@@ -44,8 +46,13 @@ client.on("ready", client => {
 });
 
 client.on("messageCreate", message => {
+    let c = true;
     callbacks.message.forEach(callback => {
-        callback.execute(message, client);
+        if (c) {
+            const stop = callback.execute(message, client) ? false : true;
+            if (stop) console.log(`Stopping at ${callback.data.name}`)
+            if (stop) c = false;
+        }
     });
 });
 

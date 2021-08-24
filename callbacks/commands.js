@@ -16,7 +16,8 @@ module.exports = {
     data: {
         name: "commands",
         description: "Run commands on message",
-        type: "message"
+        type: "message",
+        priority: 0
     },
     /**
      * Initialize the callback

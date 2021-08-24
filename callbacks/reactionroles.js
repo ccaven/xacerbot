@@ -6,7 +6,8 @@ module.exports = {
     data: {
         name: "reaction-roles",
         description: "Follow reactions",
-        type: "reaction"
+        type: "reaction",
+        priority: 2
     },
     initialize () {},
     /**
@@ -41,10 +42,8 @@ module.exports = {
                 } else {
                     await member.roles.remove(role);
                     console.log(`Removed ${role.name} to ${member.user.tag}.`);
-                }
-                
+                }       
             }
         }
-
     }
 };
