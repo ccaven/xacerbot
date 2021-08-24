@@ -35,6 +35,8 @@ module.exports = {
             return;
         }
 
-        message.channel.send(string);
+        await message.channel.send(string).catch(err => {
+            message.channel.send(err.message);
+        });
     }
 };

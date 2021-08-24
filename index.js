@@ -23,6 +23,11 @@ const callbacks = {
     reaction: new Collection()
 };
 
+const callbackOrder = {
+    message: [],
+    reaction: []
+};
+
 function initializeCallbacks () {
     const callbackFiles = fs.readdirSync("callbacks").filter(filename => filename.endsWith(".js"));
 
@@ -33,10 +38,14 @@ function initializeCallbacks () {
         const type = callback.data.type || "message";
 
         callbacks[type].set(callback.data.name, callback);
+        callbackOrder[type].push(callback.data.name);
         console.log(`Loaded ${type} callback ${filename}. Name: ${callback.data.name}`);
     }
 
-    callbacks.message.sort((a, b) => b.data.priority - a.data.priority);
+    console.log("Sorting callbacks by priority...");    
+    callbackOrder.message.sort((a, b) => { 
+        return callbacks.message.get(b).data.priority - callbacks.message.get(a).data.priority;
+    });
 }
 
 initializeCallbacks();
@@ -45,15 +54,11 @@ client.on("ready", client => {
     console.log(`Logged in as ${client.user.tag}!`);
 });
 
-client.on("messageCreate", message => {
-    let c = true;
-    callbacks.message.forEach(callback => {
-        if (c) {
-            const stop = callback.execute(message, client) ? false : true;
-            if (stop) console.log(`Stopping at ${callback.data.name}`)
-            if (stop) c = false;
-        }
-    });
+client.on("messageCreate", async message => {
+    for (const callbackName of callbackOrder.message) {
+        const res = await callbacks.message.get(callbackName).execute(message, client);
+        if (res) break;
+    }
 });
 
 client.on("messageReactionAdd", (reaction, user) => {

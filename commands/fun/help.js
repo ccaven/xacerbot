@@ -10,31 +10,42 @@ module.exports = {
      * @param {{client: djs.Client, commands: djs.Collection<string, object>, message: djs.Message}} context 
      * @param {String} commandName 
      */
-    async execute(context, commandName) {
-
+    async execute(context) {
         const {message, client, commands} = context;
 
+        const allCommands = Array.from(commands.keys());
 
-        if (commandName) {
-            if (commands.has(commandName)) {
-                const cmd = commands.get(commandName);
-                const name = cmd.data.name;
-                const description = cmd.data.description;
+        const cmds = {};
+        const names = [];
 
-                const embed = new djs.MessageEmbed()
-                    .setColor("#ff00ff")
-                    .setTitle(name)
-                    .setDescription(description);
+        for (const commandName of allCommands) {
+            const cmd = commands.get(commandName);
 
-                message.channel.send({ embeds: [embed] });
+            if (!cmds[cmd.category]) {
+                cmds[cmd.category] = [cmd];
+                names.push(cmd.category);
             } else {
-                message.reply("Command not found");
+                cmds[cmd.category].push(cmd);
             }
-        } else {
-            const allCommands = Array.from(commands.keys());
-
-            message.reply("List of commands\n" + allCommands.join(", "));
         }
+
+        const embeds = [];
+
+        for (const cname of names) {
+            const lc = cmds[cname];
+
+            const embed = new djs.MessageEmbed()
+                .setTitle(`Category - ${cname}`);
+
+            for (const cmd of lc) {
+                embed.addField(cmd.data.name, cmd.data.description, false);
+            }
+
+            embeds.push(embed);
+        }
+
+        message.reply({ embeds: embeds });
+    
 
     }
 };
