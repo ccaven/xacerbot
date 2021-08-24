@@ -2,3 +2,5 @@ node_modules
 package-lock.json
 package.json
 .env
+push_expect
+push_sh
