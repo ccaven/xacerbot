@@ -1,16 +1,22 @@
 {
-    "fun": {
-        "descripion": "These are fun commands everyone can use"
+    "Fun": {
+        "description": "These are fun commands everyone can use"
     },
-    "moderation": {
-        "descripion": "These are moderation commands only certain users can use",
+    "Fun gifs": {
+        "description": "Make custom gifs :o"
+    },
+    "Fun voice": {
+        "description": "Run voice commands with the bot"
+    },
+    "Moderation": {
+        "description": "These are moderation commands only certain users can use",
         "allowed-permissions": ["BAN_MEMBERS"]
     },
-    "utility": {
-        "descripion": "These are utility commands only xacer can use",
+    "Utility": {
+        "description": "These are utility commands only xacer can use",
         "allowed-users": ["683115379899498526"]
     },
-    "serverhelp": {
+    "Server": {
         "description": "These are server commands that help run it.",
         "allowed-permissions": ["MANAGE_ROLES"]
     }

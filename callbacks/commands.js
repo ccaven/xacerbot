@@ -32,7 +32,10 @@ module.exports = {
             // Upon result, load in that command
             const filenames = res.filter(f => f.endsWith(".js"));
             for (const filename of filenames) {
-                const category = filename.split("commands/")[1].split("/").slice(0, -1);            
+                const category = filename.split("commands/")[1].split("/").slice(0, -1).map((s, i) => {
+                    if (i == 0) return s[0].toUpperCase() + s.slice(1);
+                    return s;
+                }).join(" ");     
                 const cmd = require(filename);
                 cmd.filename = filename;
                 cmd.category = category;

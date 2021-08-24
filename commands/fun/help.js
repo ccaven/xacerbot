@@ -1,4 +1,7 @@
 const djs = require("discord.js");
+const fs = require("fs");
+
+const perms = JSON.parse(fs.readFileSync("/home/pi/xacerbot/commands/commandinfo.json"));
 
 module.exports = {
     data: {
@@ -35,7 +38,11 @@ module.exports = {
             const lc = cmds[cname];
 
             const embed = new djs.MessageEmbed()
-                .setTitle(`Category - ${cname}`);
+                .setTitle(`${cname} Commands`);
+
+            if (perms[cname] && perms[cname].description) {
+                embed.setDescription(perms[cname].description);
+            }
 
             for (const cmd of lc) {
                 embed.addField(cmd.data.name, cmd.data.description, false);
