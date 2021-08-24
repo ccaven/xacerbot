@@ -14,12 +14,17 @@ module.exports = {
     async execute(context, ...args) {
         const { message } = context;
 
+        if (message.author.id != "683115379899498526") {
+            await message.channel.send("Only xacer can use this command.");
+            return;
+        }
+
         let value;
 
         try {
             value = eval(args.join(" "));
         } catch (e) {
-            await message.channel.send(`\`\`\`${err.message}\`\`\``);
+            await message.channel.send(`\`\`\`${e.message}\`\`\``);
             return;
         }
 

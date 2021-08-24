@@ -93,6 +93,10 @@ async function addRowNoDuplicates (name, data) {
  * @returns {Promise<QueryResult>} the query result
  */
 async function runQuery (query, values) {
+    if (!query) {
+        return;
+    }
+
     if(query.includes("DROP") || query.includes("drop")) {
         console.log("Tried to drop something; xacer make sure nothing bad happens.");
         return;

@@ -10,6 +10,8 @@ const commands = new djs.Collection();
 // All command categories
 const categories = new djs.Collection();
 
+let perms;
+
 module.exports = {
     data: {
         name: "commands",
@@ -20,6 +22,11 @@ module.exports = {
      * Initialize the callback
      */
     initialize () {
+
+        perms = JSON.parse(fs.readFileSync("/home/pi/xacerbot/commands/commandinfo.json"));
+        console.log(perms);
+
+
         glob("/home/pi/xacerbot/commands/**/*", (err, res) => {
             // Upon result, load in that command
             const filenames = res.filter(f => f.endsWith(".js"));
@@ -48,30 +55,6 @@ module.exports = {
         // Exit if it's not a command
         if (!commandText.startsWith(process.env.BOT_PREFIX)) return;
 
-        /*
-        // Hardcoded reload command
-        if (message.author.id == "683115379899498526" && commandText.startsWith("x!reload")) {
-            const commandName = commandText.split(" ")[1];
-            const filename = `../commands/${commandName}.js`;
-            console.log(`Trying to reload command... ${filename}`)
-
-            fs.access(filename, fs.F_OK, err => {
-                if (err) {
-                    message.reply("The command you are trying to reload doesn't exist");
-                    console.log("Reloaded file didn't exist... \n", err);
-                    return;
-                }
-
-                const newCommand = require(filename);
-                commands.set(newCommand.data.name, newCommand);
-
-                message.channel.send(`Reloaded ${commandName}.`);
-            });    
-
-            return;
-        }
-        */
-
         // Break the text down into the name and arguments
         const commandChunks = commandText
             .toLowerCase()
@@ -90,8 +73,8 @@ module.exports = {
         const cmd = commands.get(commandName);
 
         // Determine if user has permissions to run command
-        const permsInfo = JSON.parse(await fs.promises.readFile("/home/pi/xacerbot/commands/commandinfo.json"));
-        const commandInfo = permsInfo[cmd.category];
+        // const permsInfo = JSON.parse(await fs.promises.readFile("/home/pi/xacerbot/commands/commandinfo.json"));
+        const commandInfo = perms[cmd.category];
 
         if (commandInfo) {
             // Get allowed users

@@ -9,5 +9,9 @@
     "utility": {
         "descripion": "These are utility commands only xacer can use",
         "allowed-users": ["683115379899498526"]
+    },
+    "server": {
+        "description": "These are server commands that help run it.",
+        "allowed-permissions": ["MANAGE_ROLES"]
     }
 }
