@@ -46,7 +46,6 @@ CREATE TABLE ${name} (
     ${columns.join(",\n\t")}
 );
     `;
-    console.log("Running query: " + queryText);
     await client.query(sanitizeString(queryText));
 }
 
@@ -59,16 +58,7 @@ CREATE TABLE ${name} (
 async function addRow (name, data) {
     const queryValues = data.map((_, idx) => "$" + (idx+1));
     const queryText = `INSERT INTO ${name} VALUES (${queryValues.join(", ")});`;
-    console.log(queryText);
     return client.query(queryText, data);
-}
-
-/**
- * Get the column 
- * @param {string} name 
- */
-async function getColumnNames (name) {
-
 }
 
 /**
@@ -83,7 +73,6 @@ async function addRowNoDuplicates (name, data) {
     
     const queryValues = data.map((_, idx) => "$" + (idx+1));
     const queryText = `INSERT INTO ${name} VALUES (${queryValues.join(", ")});`;
-    console.log(queryText);
     return client.query(queryText, data);
 }
 
@@ -102,7 +91,6 @@ async function runQuery (query, values) {
         return;
     }
     //query = sanitizeString(query);
-    console.log("Running query", query);
     return client.query(query, values);
 }
 

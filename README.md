@@ -15,4 +15,10 @@ Some planned features are:
  - Custom GIFs made by inserting profile pictures into memes
  - Member reputation points to decide who your next mod should be
 
+Other potential features:
+ - Economy commands
+ - GPT-2 API commands
+ - LaTeX and compiler commands
+ - Safe eval
+
 If you have questions or suggestions, post an issue on this repository.
