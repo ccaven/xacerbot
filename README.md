@@ -4,7 +4,7 @@ xacerbot is an open-source discord.js-based application developed by [xacer](htt
 
 xacerbot was made to moderate, track, and spice up servers with fun commands and games.
 
-## The past, the current, and the future
+## The past, the present, and the future
 Here are current features:
  - Custom censors with various punishment levels
  - Reaction roles
