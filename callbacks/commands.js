@@ -7,10 +7,7 @@ const glob = require('glob');
 // All commands
 const commands = new djs.Collection();
 
-// All command categories
-const categories = new djs.Collection();
-
-let perms;
+const perms = JSON.parse(fs.readFileSync("/home/pi/xacerbot/commands/commandinfo.json"));
 
 module.exports = {
     data: {
@@ -23,11 +20,6 @@ module.exports = {
      * Initialize the callback
      */
     initialize () {
-
-        perms = JSON.parse(fs.readFileSync("/home/pi/xacerbot/commands/commandinfo.json"));
-        console.log(perms);
-
-
         glob("/home/pi/xacerbot/commands/**/*", (err, res) => {
             // Upon result, load in that command
             const filenames = res.filter(f => f.endsWith(".js"));
@@ -43,7 +35,6 @@ module.exports = {
                 commands.set(cmd.data.name, cmd);
             }
         });
-
     },
     /**
      * Execute the callback
@@ -52,7 +43,8 @@ module.exports = {
      */
     async execute (message, client) {
         if (message.author.bot) return;
-
+        if (!message.guild) return;
+        
         // Get command text
         const commandText = message.content;
 
@@ -61,13 +53,12 @@ module.exports = {
 
         // Break the text down into the name and arguments
         const commandChunks = commandText
-            .toLowerCase()
             .replace("\n", "")
             .match(/(?:[^\s"]+|"[^"]*")+/g)
             .map(s => s.replace(/['"]+/g, ''));
 
         // Extract the name from the chunks
-        const commandName = commandChunks.shift().slice(2).replace(/[^a-zA-Z ]/g, "");
+        const commandName = commandChunks.shift().slice(process.env.BOT_PREFIX.length).replace(/[^a-zA-Z ]/g, "");
 
         if (!commands.has(commandName)) {
             await message.reply("That command doesn't exist! D:");

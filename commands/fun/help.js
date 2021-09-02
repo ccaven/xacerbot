@@ -1,7 +1,7 @@
-const djs = require("discord.js");
-const fs = require("fs");
+const { Message, Collection, MessageEmbed } = require("discord.js");
+const { readFileSync } = require("fs");
 
-const perms = JSON.parse(fs.readFileSync("/home/pi/xacerbot/commands/commandinfo.json"));
+const perms = JSON.parse(readFileSync("/home/pi/xacerbot/commands/commandinfo.json"));
 
 module.exports = {
     data: {
@@ -10,11 +10,11 @@ module.exports = {
     },
     /**
      * Execute the command
-     * @param {{client: djs.Client, commands: djs.Collection<string, object>, message: djs.Message}} context 
+     * @param {{commands: Collection<string, object>, message: Message}} context 
      * @param {String} commandName 
      */
     async execute(context) {
-        const {message, client, commands} = context;
+        const {message, commands} = context;
 
         const allCommands = Array.from(commands.keys());
 
@@ -37,7 +37,7 @@ module.exports = {
         for (const cname of names) {
             const lc = cmds[cname];
 
-            const embed = new djs.MessageEmbed()
+            const embed = new MessageEmbed()
                 .setTitle(`${cname} Commands`);
 
             if (perms[cname] && perms[cname].description) {
@@ -51,8 +51,8 @@ module.exports = {
             embeds.push(embed);
         }
 
-        message.reply({ embeds: embeds });
-    
+        message.author.send({ embeds: embeds });
+        message.react("✅");
 
     }
 };

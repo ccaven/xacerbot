@@ -23,6 +23,7 @@ module.exports = {
         fs.access(filename, () => {
             delete require.cache[require.resolve(filename)];
             const cmd = require(filename);
+            cmd.filename = filename;
             commands.set(cmd.data.name, cmd);
             message.reply(`Reloaded \`${filename.split("/commands")[1]}\``);
         });

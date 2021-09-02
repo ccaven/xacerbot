@@ -22,7 +22,7 @@ module.exports = {
         let value;
 
         try {
-            value = eval(args.join(" "));
+            value = await (eval(args.join(" ")));
         } catch (e) {
             await message.channel.send(`\`\`\`${e.message}\`\`\``);
             return;

@@ -54,7 +54,6 @@ module.exports = {
         const allmembers = await message.guild.members.fetch();
 
         const ourMember = allmembers.find(v => {
-            console.log(v.user.username);
             return v.user.username.toLowerCase() == username;
         });
 

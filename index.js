@@ -12,10 +12,16 @@ const client = new Client({
         Intents.FLAGS.GUILD_MESSAGE_REACTIONS,        
         Intents.FLAGS.GUILD_EMOJIS_AND_STICKERS,
         Intents.FLAGS.GUILD_MESSAGE_TYPING,
+        Intents.FLAGS.GUILD_VOICE_STATES,
+        Intents.FLAGS.GUILD_PRESENCES,
         Intents.FLAGS.DIRECT_MESSAGES,
-        Intents.FLAGS.DIRECT_MESSAGE_REACTIONS
+        Intents.FLAGS.DIRECT_MESSAGE_REACTIONS,
     ],
-    disableMentions: ["everyone", "here"]
+    allowedMentions: {
+        users: [],
+        roles: [],
+        repliedUser: true,
+    },
 });
 
 const callbacks = {
@@ -50,8 +56,10 @@ function initializeCallbacks () {
 
 initializeCallbacks();
 
-client.on("ready", client => {
-    console.log(`Logged in as ${client.user.tag}!`);
+client.on("ready", async c => {
+    console.log(`Logged in as ${c.user.tag}!`);
+
+    await (require("./helper/yt-trackers.js").setClient)(client);
 });
 
 client.on("messageCreate", async message => {
