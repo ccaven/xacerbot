@@ -54,7 +54,7 @@ module.exports = {
         const allmembers = await message.guild.members.fetch();
 
         const ourMember = allmembers.find(v => {
-            return v.user.username.toLowerCase() == username;
+            return v.user.username.toLowerCase() == username || v.user.id == username || v.displayName == username;
         });
 
         if (!ourMember) {
@@ -64,6 +64,7 @@ module.exports = {
 
         const embed = new djs.MessageEmbed()
             .setColor("#ffffff")
+            .setImage(ourMember.user.avatarURL()) 
             .setTitle(ourMember.user.tag);
 
         await message.channel.send({ embeds: [embed] });
