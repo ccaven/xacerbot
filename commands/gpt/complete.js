@@ -1,4 +1,4 @@
-const { Message } = require("discord.js");
+const { Message, MessageEmbed } = require("discord.js");
 const fetch = require("node-fetch").default;
 const db = require("/home/pi/xacerbot/database.js");
 
@@ -7,9 +7,24 @@ const waitTime = 1000 * 30;
 
 const queue = [];
 
-function empty () {
+let canRun = true;
+
+async function empty () {
+    if (!queue.length) {
+        canRun = true;
+        return;
+    }
+
+    canRun = false;
+
     const task = queue[0];
-    console.log("Running task: ", task);
+
+    await task.replyMessage.edit({
+        embeds: [{
+            title: "Fetching..."
+        }]
+    });
+
     fetch("https://api.eleuther.ai/completion", {
         "headers": {
             "accept": "application/json",
@@ -34,20 +49,27 @@ function empty () {
         
         while (text.includes("\n\n")) text = text.replace("\n\n", "\n");
 
-        await task.message.reply(text);
+        const embed = new MessageEmbed()
+            .setTitle(`Story requested by ${task.message.member.displayName}`)
+            .setDescription(text);
+
+        await task.replyMessage.edit({
+            embeds: [embed]
+        });
 
         await db.addRow("gpt_requests", [task.message.author.id, task.prompt, text, Date.now()]);
 
         queue.shift();
-        if (queue.length) {
-            setTimeout(empty, waitTime);
-        }
+        setTimeout(empty, waitTime);
     }).catch(async e => {
-        await task.message.reply(`There was an error running this command.\n\`\`\`${e.message}\`\`\``);
+        await task.replyMessage.edit({
+            embeds: [{
+                title: "Error",
+                description: e.message
+            }]
+        });
         queue.shift();
-        if (queue.length) {
-            setTimeout(empty, waitTime);
-        }
+        setTimeout(empty, waitTime);
     });
 }
 
@@ -56,9 +78,17 @@ function empty () {
  * @param {Message} message 
  * @param {string} prompt 
  */
-function addTask (message, prompt) {
+async function addTask (message, prompt) {
+
+    const replyMessage = await message.reply({
+        embeds: [{
+            title: `Queued... behind ${queue.length} items.`
+        }]
+    });
+
     const task = {
         message: message,
+        replyMessage: replyMessage,
         prompt: prompt,
         askTime: Date.now()
     };
@@ -69,17 +99,20 @@ function addTask (message, prompt) {
         const diff = task.askTime - prevQueueTime;
 
         if (diff < 1000) {
-            message.reply("Please don't spam");
+            await replyMessage.edit({
+                embeds: [{
+                    title: `Dude - **${message.member.displayName}**`,
+                    description: `You better stop spamming.`
+                }]
+            });
             return;
         }
     }
 
-    console.log("Added task to queue: " + task);
     queue.push(task);
 
-    if (queue.length == 1) {
-        empty();
-    }
+    if (queue.length == 1 && canRun) empty();
+    
 }
 
 module.exports = {

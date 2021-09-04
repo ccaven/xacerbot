@@ -59,6 +59,15 @@ initializeCallbacks();
 client.on("ready", async c => {
     console.log(`Logged in as ${c.user.tag}!`);
 
+    client.user.setPresence({ 
+        activities: [
+            { name: 'Byte Season 2', type: "COMPETING" },
+        ], 
+        status: 'idle' 
+    });
+
+    client.user.setAFK(true);    
+
     await (require("./helper/yt-trackers.js").setClient)(client);
 });
 

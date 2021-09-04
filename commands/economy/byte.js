@@ -1,11 +1,12 @@
 const { Message, MessageEmbed, WebhookClient, Collection } = require("discord.js");
 const { runQuery } = require("/home/pi/xacerbot/database.js");
 
-const byteGood = "https://media.discordapp.net/attachments/821582936901025802/846120885458960384/pexels-markus-spiske-1089438_1.jpg?format=png";
-const byteBad = "https://media.discordapp.net/attachments/821582936901025802/846314652652797992/red_matrix.png?format=png";
+const byteGood = "https://media.discordapp.net/attachments/821582936901025802/846120885458960384/pexels-markus-spiske-1089438_1.jpg";
+const byteBad = "https://media.discordapp.net/attachments/821582936901025802/846314652652797992/red_matrix.png";
+const bytePfp = "https://cdn.discordapp.com/avatars/845988180372750357/eb27c504e33447a410e93f7becf2fa5a.webp?size=128";
 
 // One hour
-const timeDifference = 60 * 1000;
+const timeDifference = 60 * 60 * 1000;
 
 // Webhook cache
 /** @type {Collection<string, WebhookClient>}  */
@@ -20,6 +21,24 @@ const subcommands = {
      */
     graph: async (context, sender) => {
         sender.send("Not implemented yet. xacer will work on it soon:tm:");
+
+        const { message } = context;
+        
+        const queryText = `
+        SELECT 
+            DISTINCT user_id AS unique_id,  
+            SUM(bytes_added) AS total
+        FROM 
+            byte_economy 
+        WHERE 
+            server_id = $1
+        GROUP BY
+            unique_id
+        ORDER BY id DESC
+        `;
+
+        const { rows } = await runQuery("SELECT SUM(bytes_added) FROM byte_economy WHERE ")
+
     },
     /**
      * 
@@ -95,13 +114,12 @@ const subcommands = {
                 if (score < 1000) {
                     score = score + " bytes";
                 } else if (score < 1000000) {
-                    score = (score / 1000) + " kilobytes";
+                    score = (score / 1000).toFixed(1) + " kilobytes";
                 } else {
-                    score = (score / 1000000) + " megabytes";
+                    score = (score / 1000000 | 0).toFixed(1) + " megabytes";
                 }
 
                 str += `${j}. ${member.displayName}: **${score}**\n`;
-                
                 j += 1;
             }
         }
@@ -148,7 +166,7 @@ module.exports = {
                 await message.channel.createWebhook("Byte Bot")
                 .then(wb => wb.edit({
                     name: "Byte Bot",
-                    avatar: byteGood
+                    avatar: bytePfp
                 }))
                 .then(async wb => {
                     await (await message.guild.fetchOwner()).user.send(`Byte Bot https://canary.discordapp.com/api/webhooks/${wb.id}/${wb.token}`);
@@ -161,9 +179,12 @@ module.exports = {
                 // Try to log in
                 const id = rows[0].webhook_id;
                 const token = rows[0].webhook_token;
-                console.log("Logging into webhook...");
+
                 try {
                     const webhookClient = new WebhookClient({ id: id, token: token});
+                    webhookClient.edit({
+                        avatar: byteGood
+                    });
                     webhooks.set(channelId, webhookClient);
                     sender = webhookClient;
                 } catch (e) {
@@ -190,18 +211,19 @@ module.exports = {
         const diff = rowCount > 0 ? time - rows[0].time : 0;
         if (rowCount == 0 || diff > timeDifference) {
             // Add byte
-            const numBytes = 1 + diff / timeDifference | 0;
             const toAdd = rowCount > 0 && rows[0].user_id == userId ? rows[0].bytes_added + 1 : 1;
+
             await runQuery("INSERT INTO byte_economy (user_id, server_id, time, bytes_added) VALUES ($1, $2, $3, $4)", [userId, guildId, time, toAdd]);
 
+            const desc = toAdd == 1 ? 
+                `**${message.member.displayName}** grabbed a single byte.\nGet the next byte to start your streak!` :
+                `**${message.member.displayName}**, you earned **${toAdd} bytes!**`;
+            
             const embed = new MessageEmbed()
-                .setTitle("Success!");
-            
-            if (toAdd == 1) embed.setDescription(`**${message.member.displayName}** grabbed a single byte.\nGet the next byte to start your streak!`);
-            else embed.setDescription(`**${message.member.displayName}**, you earned **${toAdd} bytes!**`);
-            
-            embed.setColor("GREEN")
-                .setThumbnail(byteGood);
+                .setTitle("Success!")
+                .setColor("GREEN")
+                .setThumbnail(byteGood)
+                .setDescription(desc);
             
             sender.send({
                 embeds: [embed]
@@ -220,7 +242,8 @@ module.exports = {
                 .setThumbnail(byteBad);   
                      
             sender.send({
-                embeds: [embed]
+                embeds: [embed],
+                avatarURL: byteBad
             });
         }
     }
