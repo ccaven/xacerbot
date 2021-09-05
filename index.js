@@ -91,7 +91,8 @@ client.on("messageReactionRemove", (reaction, user) => {
 });
 
 client.on("guildCreate", guild => {
-    guild.systemChannel.send("Hello, I'm xacerbot. Thanks for inviting me!");
+    if (guild.systemChannel)
+        guild.systemChannel.send("Hello, I'm xacerbot. Thanks for inviting me!");
 });
 
 client.login(process.env.BOT_TOKEN);

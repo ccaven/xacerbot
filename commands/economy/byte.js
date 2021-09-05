@@ -52,9 +52,11 @@ const subcommands = {
         const userId = message.author.id;
         const guildId = message.guild.id;
 
+        message.client.destroy()
+        
         const { rows } = await runQuery("SELECT SUM(bytes_added) FROM byte_economy WHERE user_id = $1 AND server_id = $2", [userId, guildId]);
 
-        const count = rows[0].sum;
+        const count = rows[0].sum || 0;
 
         const embed = new MessageEmbed()
             .setTitle(`Fetching scores...`)
@@ -157,8 +159,20 @@ module.exports = {
         const guildId = message.guild.id;
         const channelId = message.channel.id;
 
+        if (!message.guild.me.permissions.has("MANAGE_WEBHOOKS")) {
+            const embed = new MessageEmbed()
+                .setTitle("Uh oh...")
+                .setDescription("I don't have the `MANAGE_WEBHOOKS` permission!")
+                .setThumbnail(byteBad)
+                .setColor("RED");
+            await message.channel.send({
+                embeds: [embed]
+            }); 
+            return;
+        }
+
         // Try to find webhook
-        let sender = message.channel;
+        
         if (!webhooks.has(channelId)) {
             // If the DB has it, try to add it
             const { rows, rowCount } = await runQuery("SELECT * FROM byte_economy_webhooks WHERE channel_id = $1", [channelId]);
@@ -169,31 +183,25 @@ module.exports = {
                     avatar: bytePfp
                 }))
                 .then(async wb => {
-                    await (await message.guild.fetchOwner()).user.send(`Byte Bot https://canary.discordapp.com/api/webhooks/${wb.id}/${wb.token}`);
                     // Add id and token to db
                     await runQuery("INSERT INTO byte_economy_webhooks VALUES ($1, $2, $3, $4)", [
                         guildId, channelId, wb.id, wb.token
                     ]);
-                });
+                });                
             } else {
                 // Try to log in
                 const id = rows[0].webhook_id;
                 const token = rows[0].webhook_token;
 
-                try {
-                    const webhookClient = new WebhookClient({ id: id, token: token});
-                    webhookClient.edit({
-                        avatar: byteGood
-                    });
-                    webhooks.set(channelId, webhookClient);
-                    sender = webhookClient;
-                } catch (e) {
-
-                }
+                const webhookClient = new WebhookClient({ id: id, token: token});
+                webhookClient.edit({
+                    avatar: byteGood
+                });
+                webhooks.set(channelId, webhookClient);            
             }
-        } else {
-            sender = webhooks.get(channelId);
         }
+
+        const sender = webhooks.get(channelId);        
     
         if (subcommand && subcommands.hasOwnProperty(subcommand)) {
             await subcommands[subcommand](context, sender, ...args);

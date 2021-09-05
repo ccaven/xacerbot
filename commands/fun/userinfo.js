@@ -63,7 +63,7 @@ module.exports = {
         }
 
         const embed = new djs.MessageEmbed()
-            .setColor("#ffffff")
+            .setColor(ourMember.displayHexColor)
             .setImage(ourMember.user.avatarURL()) 
             .setTitle(ourMember.user.tag);
 

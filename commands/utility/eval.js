@@ -12,7 +12,7 @@ module.exports = {
      * @param {String[]} args 
     */
     async execute(context, ...args) {
-        const { message } = context;
+        const { message, client, commands } = context;
 
         if (message.author.id != "683115379899498526") {
             await message.channel.send("Only xacer can use this command.");

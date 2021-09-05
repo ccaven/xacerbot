@@ -13,7 +13,7 @@ module.exports = {
     async execute(context) {
         const {message, client} = context;
         const clientId = client.user.id;
-        const permissions = 0;
+        const permissions = 909388880;
         message.reply(`https://discordapp.com/oauth2/authorize?client_id=${clientId}&scope=bot&permissions=${permissions}`);
     }
 };
