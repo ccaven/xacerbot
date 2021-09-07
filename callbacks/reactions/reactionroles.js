@@ -6,7 +6,7 @@ module.exports = {
     data: {
         name: "reaction-roles",
         description: "Follow reactions",
-        type: "reaction",
+        callback: "messageReactionAdd",
         priority: 2
     },
     initialize () {},
@@ -14,9 +14,8 @@ module.exports = {
      * Execute the callback
      * @param {djs.MessageReaction} reaction 
      * @param {djs.User} user
-     * @param {djs.Client} client 
      */
-    async execute (reaction, user, client, addRole=true) {
+    async execute (reaction, user) {
         // Needed info
         const emojiId = reaction.emoji.id;
         const messageId = reaction.message.id;
@@ -36,13 +35,8 @@ module.exports = {
                 const userId = user.id;
                 const member = (await guild.members.fetch()).get(userId);
 
-                if (addRole) {
-                    await member.roles.add(role);
-                    console.log(`Added ${role.name} to ${member.user.tag}.`);
-                } else {
-                    await member.roles.remove(role);
-                    console.log(`Removed ${role.name} to ${member.user.tag}.`);
-                }       
+                await member.roles.add(role);
+                console.log(`Added ${role.name} to ${member.user.tag}.`);   
             }
         }
     }

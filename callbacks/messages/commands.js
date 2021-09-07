@@ -13,14 +13,14 @@ module.exports = {
     data: {
         name: "commands",
         description: "Run commands on message",
-        type: "message",
+        callback: "messageCreate",
         priority: 0
     },
     /**
      * Initialize the callback
      */
     initialize () {
-        glob("/home/pi/xacerbot/commands/**/*", (err, res) => {
+        glob("/home/pi/xacerbot/commands/**/*", (_, res) => {
             // Upon result, load in that command
             const filenames = res.filter(f => f.endsWith(".js"));
             for (const filename of filenames) {
@@ -38,12 +38,13 @@ module.exports = {
     },
     /**
      * Execute the callback
-     * @param {djs.Message} message 
-     * @param {djs.Client} client
+     * @param {djs.Message} message
      */
-    async execute (message, client) {
+    async execute (message) {
         if (message.author.bot) return;
         if (!message.guild) return;
+
+        const client = message.client;
         
         // Get command text
         const commandText = message.content;

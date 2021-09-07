@@ -56,7 +56,7 @@ module.exports = {
     data: {
         name: "moderations",
         description: "Make sure messages don't have bad words",
-        type: "message",
+        callback: "messageCreate",
         priority: 2
     },
     initialize () {
@@ -64,14 +64,16 @@ module.exports = {
     },
     /**
      * Execute the moderation callback
-     * @param {djs.Message} message 
-     * @param {djs.Client} client 
+     * @param {djs.Message} message
      */
-    async execute (message, client) {
+    async execute (message) {
 
+        const client = message.client;
+        
         if (message.author.id == client.user.id) return;
         if (!message.guild) return;
         
+
         const guildId = message.guild.id;
 
         const serverQuery = await db.runQuery("SELECT moderation_channel_id, use_moderation FROM server_info WHERE server_id = $1;", [guildId]);

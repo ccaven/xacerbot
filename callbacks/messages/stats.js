@@ -3,9 +3,9 @@ module.exports = {
     data: {
         name: "stats",
         description: "Run analytics for server stats",
-        type: "message",
+        callback: "messageCreate",
         priority: 1
     },
     initialize () {},
-    async execute () {}
+    async execute (message) {}
 };

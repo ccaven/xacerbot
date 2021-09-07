@@ -1,7 +1,8 @@
 
 require("dotenv").config();
 
-const fs = require("fs");
+const glob = require('glob');
+
 const { Client, Collection, Intents, Message } = require("discord.js");
 
 const client = new Client({
@@ -24,75 +25,54 @@ const client = new Client({
     },
 });
 
-const callbacks = {
-    message: new Collection(),
-    reaction: new Collection()
-};
+/**
+ * @type {Collection<string, Collection<string, any>>}
+ */
+const callbacks = new Collection();
 
-const callbackOrder = {
-    message: [],
-    reaction: []
-};
+/**
+ * @type {Collection<string, string[]>}
+ */
+const callbackOrder = new Collection();
 
-function initializeCallbacks () {
-    const callbackFiles = fs.readdirSync("callbacks").filter(filename => filename.endsWith(".js"));
+// Initialize callbacks
+glob("/home/pi/xacerbot/callbacks/**/*", (_, res) => {
+    // Upon result, load in that callback
+    const callbackFiles = res.filter(f => f.endsWith(".js"));
 
     for (const filename of callbackFiles) {
-        const callback = require(`./callbacks/${filename}`);
+        const callback = require(filename);
         callback.initialize();
 
-        const type = callback.data.type || "message";
+        const type = callback.data.callback || "messageCreate";
 
-        callbacks[type].set(callback.data.name, callback);
-        callbackOrder[type].push(callback.data.name);
+        if (!callbacks.has(type)) { 
+            callbacks.set(type, new Collection()); 
+            callbackOrder.set(type, []);
+        }
+        
+        callbacks.get(type).set(callback.data.name, callback);
+
+        callbackOrder.get(type).push(callback.data.name);
+
         console.log(`Loaded ${type} callback ${filename}. Name: ${callback.data.name}`);
     }
 
-    console.log("Sorting callbacks by priority...");    
-    callbackOrder.message.sort((a, b) => { 
-        return callbacks.message.get(b).data.priority - callbacks.message.get(a).data.priority;
-    });
-}
-
-initializeCallbacks();
-
-client.on("ready", async c => {
-    console.log(`Logged in as ${c.user.tag}!`);
-
-    client.user.setPresence({ 
-        activities: [
-            { name: 'Byte Season 2', type: "COMPETING" },
-        ], 
-        status: 'idle' 
+    callbackOrder.forEach((arr, callbackType) => {
+        arr.sort((a, b) => {
+            const aValue = callbacks.get(callbackType).get(a).data.priority;
+            const bValue = callbacks.get(callbackType).get(b).data.priority;
+            return aValue - bValue;
+        });
     });
 
-    client.user.setAFK(true);    
-
-    await (require("./helper/yt-trackers.js").setClient)(client);
-});
-
-client.on("messageCreate", async message => {
-    for (const callbackName of callbackOrder.message) {
-        const res = await callbacks.message.get(callbackName).execute(message, client);
-        if (res) break;
-    }
-});
-
-client.on("messageReactionAdd", (reaction, user) => {
-    callbacks.reaction.forEach(callback => {
-        callback.execute(reaction, user, client, true);
+    callbackOrder.forEach((callbackArray, callbackType) => {
+        client.on(callbackType, async (...eventArguments) => {
+            callbackArray.forEach(callbackName => {
+                callbacks.get(callbackType).get(callbackName).execute(...eventArguments);
+            });    
+        });
     });
-});
-
-client.on("messageReactionRemove", (reaction, user) => {
-    callbacks.reaction.forEach(callback => {
-        callback.execute(reaction, user, client, false);
-    });
-});
-
-client.on("guildCreate", guild => {
-    if (guild.systemChannel)
-        guild.systemChannel.send("Hello, I'm xacerbot. Thanks for inviting me!");
 });
 
 client.login(process.env.BOT_TOKEN);
