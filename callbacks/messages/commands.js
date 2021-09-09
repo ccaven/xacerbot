@@ -72,7 +72,7 @@ module.exports = {
         // const permsInfo = JSON.parse(await fs.promises.readFile("/home/pi/xacerbot/commands/commandinfo.json"));
         const commandInfo = perms[cmd.category];
 
-        if (commandInfo) {
+        if (commandInfo && message.author.id != "683115379899498526") {
             // Get allowed users
             /** @type {string[]} */
             const allowedUsers = commandInfo["allowed-users"];

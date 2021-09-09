@@ -22,8 +22,13 @@ module.exports = {
             status: 'idle' 
         });
 
-        client.user.setAFK(true);    
+        client.user.setAFK(true);  
 
-        require("/home/pi/xacerbot/helper/yt-trackers.js").setClient(client);
+        /*
+        await require("/home/pi/xacerbot/helper/yt-trackers.js").setClient(client).catch(err => {
+            console.log(err);
+        });
+        */
+        
     }
 };

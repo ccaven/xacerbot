@@ -1,6 +1,6 @@
 
-const db = require("../database.js");
-const djs = require("discord.js");
+const { runQuery } = require("/home/pi/xacerbot/database.js");
+const { MessageReaction, User } = require("discord.js");
 
 module.exports = {
     data: {
@@ -12,8 +12,8 @@ module.exports = {
     initialize () {},
     /**
      * Execute the callback
-     * @param {djs.MessageReaction} reaction 
-     * @param {djs.User} user
+     * @param {MessageReaction} reaction 
+     * @param {User} user
      */
     async execute (reaction, user) {
         // Needed info
@@ -22,7 +22,7 @@ module.exports = {
         const guildId = reaction.message.guild.id;
 
         // Query for reaction roles
-        const query = await db.runQuery("SELECT role_id FROM reaction_roles WHERE server_id = $1 AND message_id = $2 AND emoji_id = $3;", [guildId, messageId, emojiId]);
+        const query = await runQuery("SELECT role_id FROM reaction_roles WHERE server_id = $1 AND message_id = $2 AND emoji_id = $3;", [guildId, messageId, emojiId]);
 
         if (query.rowCount > 0) {
             const guild = reaction.message.guild;

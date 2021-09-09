@@ -1,49 +1,33 @@
-const { Message, MessageEmbed, WebhookClient, Collection } = require("discord.js");
+const { Message, MessageEmbed, WebhookClient, Collection, TextChannel } = require("discord.js");
 const { runQuery } = require("/home/pi/xacerbot/database.js");
+const { getWebhook } = require("/home/pi/xacerbot/helper/webhooks.js");
 
-const byteGood = "https://media.discordapp.net/attachments/821582936901025802/846120885458960384/pexels-markus-spiske-1089438_1.jpg";
-const byteBad = "https://media.discordapp.net/attachments/821582936901025802/846314652652797992/red_matrix.png";
-const bytePfp = "https://cdn.discordapp.com/avatars/845988180372750357/eb27c504e33447a410e93f7becf2fa5a.webp?size=128";
+const byteGood = "https://xacer.dev/xacerbot/byteGood.png";
+const byteBad = "https://xacer.dev/xacerbot/byteBad.png";
 
 // One hour
 const timeDifference = 60 * 60 * 1000;
-
-// Webhook cache
-/** @type {Collection<string, WebhookClient>}  */
-const webhooks = new Collection();
 
 const subcommands = {
 
     /**
      * 
      * @param {{message: Message}} context 
-     * @param {WebhookClient}
+     * @param {WebhookClient} sender
      */
     graph: async (context, sender) => {
-        sender.send("Not implemented yet. xacer will work on it soon:tm:");
-
         const { message } = context;
-        
-        const queryText = `
-        SELECT 
-            DISTINCT user_id AS unique_id,  
-            SUM(bytes_added) AS total
-        FROM 
-            byte_economy 
-        WHERE 
-            server_id = $1
-        GROUP BY
-            unique_id
-        ORDER BY id DESC
-        `;
 
-        const { rows } = await runQuery("SELECT SUM(bytes_added) FROM byte_economy WHERE ")
-
+        sender.send({ 
+            content: "Not implemented yet. xacer will work on it soon:tm:",
+            username: "Byte Bot Stats",
+            avatar: byteGood
+        });
     },
     /**
      * 
      * @param {{message: Message}} context 
-     * @param {WebhookClient}
+     * @param {WebhookClient} sender
      */
     score: async (context, sender) => {
         //
@@ -51,8 +35,6 @@ const subcommands = {
 
         const userId = message.author.id;
         const guildId = message.guild.id;
-
-        message.client.destroy()
         
         const { rows } = await runQuery("SELECT SUM(bytes_added) FROM byte_economy WHERE user_id = $1 AND server_id = $2", [userId, guildId]);
 
@@ -72,14 +54,16 @@ const subcommands = {
         }
 
         sender.send({
-            embeds: [embed]
+            embeds: [embed],
+            username: "Byte Bot Stats",
+            avatarURL: byteGood
         });
     },
 
     /**
      * Get the leaderboard
      * @param {{ message: Message }} context 
-     * @param {TextChannel} sender 
+     * @param {WebhookClient} sender 
      * @param {number} spots 
      */
     leaderboard: async (context, sender, spots=50) => {
@@ -134,7 +118,9 @@ const subcommands = {
             .addField(`Top ${j - 1}`, str.length ? str : "What do _you_ think you're lookin' at?");
 
         sender.send({
-            embeds: [embed]
+            embeds: [embed],
+            username: "Byte Bot Stats",
+            avatarURL: byteGood
         });
     },
 
@@ -159,56 +145,12 @@ module.exports = {
         const guildId = message.guild.id;
         const channelId = message.channel.id;
 
-        if (!message.guild.me.permissions.has("MANAGE_WEBHOOKS")) {
-            const embed = new MessageEmbed()
-                .setTitle("Uh oh...")
-                .setDescription("I don't have the `MANAGE_WEBHOOKS` permission!")
-                .setThumbnail(byteBad)
-                .setColor("RED");
-            await message.channel.send({
-                embeds: [embed]
-            }); 
-            return;
-        }
+        const sender = await getWebhook(message.channel);
 
-        // Try to find webhook
-        
-        if (!webhooks.has(channelId)) {
-            // If the DB has it, try to add it
-            const { rows, rowCount } = await runQuery("SELECT * FROM byte_economy_webhooks WHERE channel_id = $1", [channelId]);
-            if (rowCount == 0) {
-                await message.channel.createWebhook("Byte Bot")
-                .then(wb => wb.edit({
-                    name: "Byte Bot",
-                    avatar: bytePfp
-                }))
-                .then(async wb => {
-                    // Add id and token to db
-                    await runQuery("INSERT INTO byte_economy_webhooks VALUES ($1, $2, $3, $4)", [
-                        guildId, channelId, wb.id, wb.token
-                    ]);
-                });                
-            } else {
-                // Try to log in
-                const id = rows[0].webhook_id;
-                const token = rows[0].webhook_token;
-
-                const webhookClient = new WebhookClient({ id: id, token: token});
-                webhookClient.edit({
-                    avatar: byteGood
-                });
-                webhooks.set(channelId, webhookClient);            
-            }
-        }
-
-        const sender = webhooks.get(channelId);        
-    
         if (subcommand && subcommands.hasOwnProperty(subcommand)) {
             await subcommands[subcommand](context, sender, ...args);
             return;
-        }
-
-        
+        }        
 
         const time = Date.now();
 
@@ -234,6 +176,8 @@ module.exports = {
                 .setDescription(desc);
             
             sender.send({
+                username: "Byte Bot",
+                avatarURL: byteGood,
                 embeds: [embed]
             });
 
@@ -247,10 +191,11 @@ module.exports = {
                 .setTitle("Oh no!")
                 .setDescription(`**${message.member.displayName}**, please wait **${mins} minutes and ${secs} seconds**\nbefore grabbing another byte!`)
                 .setColor("RED")
-                .setThumbnail(byteBad);   
+                .setThumbnail(byteBad);
                      
             sender.send({
                 embeds: [embed],
+                username: "Byte Bot",
                 avatarURL: byteBad
             });
         }

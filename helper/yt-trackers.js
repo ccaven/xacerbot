@@ -39,7 +39,6 @@ module.exports = {
             const guild = await oath2.fetch();
             
             const guildId = guild.id;
-            const channels = await guild.channels.fetch();
 
             const { rowCount, rows } = await runQuery("SELECT * FROM tracked_yt_channels WHERE server_id = $1", [guildId]);
 
@@ -48,7 +47,9 @@ module.exports = {
                 const channelId = rows[rowIndex].channel_id;
                 const videoUrl = rows[rowIndex].video_url;
 
-                const channel = await channels.find(c => c.id == channelId).fetch();
+                const channel = await guild.channels.fetch(channelId);
+
+                if (!channel) continue;
 
                 // Update every hour
                 updateCount(channel, videoUrl);

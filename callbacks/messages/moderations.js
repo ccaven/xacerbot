@@ -1,12 +1,13 @@
 
 const db = require("/home/pi/xacerbot/database.js");
-const djs = require("discord.js");
+const { Message, Client } = require("discord.js");
+const { getWebhook } = require("/home/pi/xacerbot/helper/webhooks.js");
 
 const tierCallbacks = [
     /**
      * Tier 1: warn
-     * @param {djs.Message} message 
-     * @param {djs.Client} client 
+     * @param {Message} message 
+     * @param {Client} client 
      */
     async (message, client) => {
         await message.channel.send(`Warned **${message.author.tag}** for saying a censored word.`);
@@ -16,8 +17,8 @@ const tierCallbacks = [
     },
     /**
      * Tier 2: mute
-     * @param {djs.Message} message 
-     * @param {djs.Client} client 
+     * @param {Message} message 
+     * @param {Client} client 
      */
     async (message, client) => {
         // Get muted role
@@ -33,8 +34,8 @@ const tierCallbacks = [
     },
     /**
      * Tier 3: ban
-     * @param {djs.Message} message
-     * @param {djs.Client} client 
+     * @param {Message} message
+     * @param {Client} client 
      */
     async (message, client) => {
 
@@ -64,7 +65,7 @@ module.exports = {
     },
     /**
      * Execute the moderation callback
-     * @param {djs.Message} message
+     * @param {Message} message
      */
     async execute (message) {
 
@@ -86,22 +87,38 @@ module.exports = {
             }
         }
         
-        const text = message.content.toLowerCase();
 
         // Get censors of server
         const serverCensors = await db.runQuery(`SELECT word, tier FROM censors WHERE server_id = $1;`, [guildId]);
+
+        let text = message.content.toLowerCase();
 
         let maxTier = 0;
         for (let i = 0; i < serverCensors.rows.length; i++) {
             const censor = serverCensors.rows[i].word;
             const tier = serverCensors.rows[i].tier;
 
-            if (text.toLowerCase().includes(censor) && tier > maxTier) maxTier = tier;
+            while (text.toLowerCase().includes(censor) && tier > maxTier) {
+                text = text.replace(censor, censor[0] + "*".repeat(censor.length-1));
+                maxTier = tier; 
+            }
         }
 
         if (maxTier > 0) { 
-            tierCallbacks[maxTier - 1](message, client); 
-            return true;
+            const webhook = await getWebhook(message.channel);
+
+            await webhook.send({
+                username: message.member.displayName,
+                avatarURL: message.author.avatarURL(),
+                content: text,
+                allowedMentions: {
+                    users: [],
+                    roles: [],
+                    repliedUser: false
+                }
+            });
+
+            await tierCallbacks[maxTier - 1](message, client);
         }
     }
 };

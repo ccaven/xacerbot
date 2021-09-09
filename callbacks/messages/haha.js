@@ -12,10 +12,8 @@ module.exports = {
      * @param {Message} message
      */
     async execute (message) {
-
         if (!message.author.bot && message.content.toLowerCase() == "haha") {
-            message.channel.send(message.content);
+            setTimeout(() => message.channel.send(message.content), Math.random() * 5000 + 1000);
         }
-
     }
 };

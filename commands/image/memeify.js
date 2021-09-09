@@ -1,11 +1,8 @@
 const { createWriteStream, unlink } = require("fs");
 
-const { Message, Client, MessageAttachment } = require("discord.js");
+const { Message } = require("discord.js");
 
-const { createCanvas, loadImage, ImageData } = require("canvas");
-
-const canvas = createCanvas(1, 1);
-const ctx = canvas.getContext("2d");
+const { PNG } = require("pngjs");
 
 const subcommands = {
 
@@ -25,18 +22,16 @@ const subcommands = {
 
         // Load image onto canvas
 
+        /*
         const img = await loadImage(attachments.first().url).catch((err) => {
             message.channel.send(`${err.name}: ${err.message}`);
         });
         
         if (!img) return;
-        
-        canvas.width = img.width;
-        canvas.height = img.height;
 
         // Get image data
-        ctx.drawImage(img, 0, 0);
-        const original = ctx.getImageData(0, 0, img.width, img.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const original = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
         function texelFetch (x, y) {
             let l = x + y * original.width << 2;
@@ -108,10 +103,8 @@ const subcommands = {
 
             // Delete file
             unlink(filename, () => {});
-
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
         }); 
+        */
     },
 
     thicc: async (context, amount) => {
@@ -133,7 +126,7 @@ module.exports = {
     async execute(context, subcommand, ...args) {
         if (subcommands.hasOwnProperty(subcommand)) {
             await subcommands[subcommand](context, ...args).catch(err => {
-                message.reply(`${err.name}: ${err.message}`);
+                context.message.reply(`${err.name}: ${err.message}`);
             });
         }
         //context.message.reply("Not implemented yet. xacer will work on it soon:tm:");
