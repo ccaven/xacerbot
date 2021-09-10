@@ -98,18 +98,20 @@ module.exports = {
             const censor = serverCensors.rows[i].word;
             const tier = serverCensors.rows[i].tier;
 
-            while (text.toLowerCase().includes(censor) && tier > maxTier) {
-                text = text.replace(censor, censor[0] + "*".repeat(censor.length-1));
-                maxTier = tier; 
+            while (text.toLowerCase().includes(censor)) {
+                text = text.replace(censor, censor[0] + "\\*".repeat(censor.length-1));
+                maxTier = Math.max(maxTier, tier); 
             }
         }
 
         if (maxTier > 0) { 
             const webhook = await getWebhook(message.channel);
+            
+            const name = message.member ? message.member.displayName : message.author.username;
 
             await webhook.send({
-                username: message.member.displayName,
-                avatarURL: message.author.avatarURL(),
+                username: name,
+                avatarURL: message.author.avatarURL({ dynamic: true }),
                 content: text,
                 allowedMentions: {
                     users: [],
@@ -118,7 +120,8 @@ module.exports = {
                 }
             });
 
-            await tierCallbacks[maxTier - 1](message, client);
+            message.delete();
+            // await tierCallbacks[maxTier - 1](message, client);
         }
     }
 };

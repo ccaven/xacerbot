@@ -69,10 +69,20 @@ glob("/home/pi/xacerbot/callbacks/**/*", (_, res) => {
     callbackOrder.forEach((callbackArray, callbackType) => {
         client.on(callbackType, async (...eventArguments) => {
             callbackArray.forEach(callbackName => {
-                callbacks.get(callbackType).get(callbackName).execute(...eventArguments);
+                callbacks.get(callbackType).get(callbackName).execute(...eventArguments).catch(err => {
+                    console.log(`Error running callback ${callbackName}: `, err);
+                });
             });    
         });
     });
 });
 
 client.login(process.env.BOT_TOKEN);
+
+process.on('uncaughtException', (err) => {
+    console.error(`Uncaught execption `, err);
+})
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error(`Unhandled Rejection, reason: `, promise)
+})

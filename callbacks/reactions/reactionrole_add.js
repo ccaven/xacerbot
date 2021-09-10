@@ -4,7 +4,7 @@ const { MessageReaction, User } = require("discord.js");
 
 module.exports = {
     data: {
-        name: "reaction-roles",
+        name: "reaction-roles-add",
         description: "Follow reactions",
         callback: "messageReactionAdd",
         priority: 2

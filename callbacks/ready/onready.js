@@ -30,5 +30,6 @@ module.exports = {
         });
         */
         
+        await require("/home/pi/xacerbot/helper/emojis.js").initializeEmojis(client);   
     }
 };

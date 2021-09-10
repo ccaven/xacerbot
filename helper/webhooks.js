@@ -17,6 +17,10 @@ module.exports = {
             return webhookCache.get(channelId);
         }
 
+        if (!channel) {
+            return null;
+        }
+
         // Determine if channel has webhook
         const webhook = (await channel.fetchWebhooks()).find(wh => wh.owner.id == channel.client.user.id);
 

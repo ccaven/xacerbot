@@ -1,5 +1,8 @@
-const djs = require("discord.js");
+const { Message, MessageEmbed } = require("discord.js");
+const { getWebhook } = require("/home/pi/xacerbot/helper/webhooks.js");
+const { inspect } = require("util");
 
+const pfpUrl = "https://xacer.dev/xacerbot/simulation_pfp.jpg";
 
 module.exports = {
     data: {
@@ -8,34 +11,53 @@ module.exports = {
     },
     /**
      * Execute the command
-     * @param {{client: djs.Client, commands: djs.Collection<string, object>, message: djs.Message}} context 
-     * @param {String[]} args 
+     * @param {{message: Message}} context
     */
-    async execute(context, ...args) {
-        const { message, client, commands } = context;
+    async execute(context) {
+        const { message } = context;
 
         if (message.author.id != "683115379899498526") {
             await message.channel.send("Only xacer can use this command.");
             return;
         }
 
-        let value;
+        const toEvaluate = message.content.split("%eval ")[1];
 
-        try {
-            value = await (eval(args.join(" ")));
-        } catch (e) {
-            await message.channel.send(`\`\`\`${e.message}\`\`\``);
-            return;
+        const embed = new MessageEmbed();
+
+        embed.setTitle("Evaluating...");
+
+        embed.setDescription(`Command run by **${message.author.tag}**`);
+
+        embed.addField("To Evaluate: ", `\`\`\`js\n${toEvaluate}\n\`\`\``);
+
+        //embed.setThumbnail(pfpUrl);
+
+        embed.setTimestamp();
+
+        const evaluated = eval(toEvaluate);
+        const str = evaluated.toString();
+        
+        if (str.length) {
+            embed.addField("Evaluated:", `\`\`\`${str}\`\`\``);
+
+            let json = JSON.stringify(await evaluated, null, 4);
+
+            if (json.length > 1000) {
+                json = json.slice(0, 1000) + "...";
+            }
+
+            embed.addField("JSON:", `\`\`\`json\n${json}\`\`\``)
+        } else {
+            embed.addField("Evaluated:", "[ empty string ]");
         }
 
-        const evaled = JSON.stringify(value);
+        const webhook = await getWebhook(message.channel);
 
-        if (evaled && evaled.length) {                
-            const sentMessage = evaled.slice(0, Math.min(evaled.length, 1000));
-            await message.channel.send("```\n" + sentMessage + "```");
-        } else {
-            await message.channel.send("\"\"");
-        }       
-        
+        webhook.send({
+            username: "The Simulation",
+            avatarURL: pfpUrl,
+            embeds: [embed]
+        });
     }
 };
