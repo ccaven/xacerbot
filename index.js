@@ -81,8 +81,8 @@ client.login(process.env.BOT_TOKEN);
 
 process.on('uncaughtException', (err) => {
     console.error(`Uncaught execption `, err);
-})
+});
 
 process.on('unhandledRejection', (reason, promise) => {
     console.error(`Unhandled Rejection, reason: `, promise)
-})
+});
