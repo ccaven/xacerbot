@@ -68,6 +68,7 @@ glob("/home/pi/xacerbot/callbacks/**/*", (_, res) => {
 
     callbackOrder.forEach((callbackArray, callbackType) => {
         client.on(callbackType, async (...eventArguments) => {
+            console.log(`Running callbacks of type ${callbackType}.`);
             callbackArray.forEach(callbackName => {
                 callbacks.get(callbackType).get(callbackName).execute(...eventArguments).catch(err => {
                     console.log(`Error running callback ${callbackName}: `, err);

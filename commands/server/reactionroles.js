@@ -16,12 +16,15 @@ module.exports = {
     async execute (context, messageLink, emojiName, roleId) {
         const { message } = context;
 
+        const guild = message.guild;
+        const guildId = guild.id;
+
         if (messageLink == "remove") {
             if (emojiName) {
-                const { rowCount } = await runQuery("REMOVE FROM reaction_roles WHERE server_id = $1 AND message_id = $2", [guildId, emojiName]);
+                const { rowCount } = await runQuery("DELETE FROM reaction_roles WHERE server_id = $1 AND message_id = $2", [guildId, emojiName]);
                 message.channel.send(`Removed ${rowCount} reaction roles from ${emojiName}.`);
             } else {
-                const { rowCount } = await runQuery("REMOVE FROM reaction_roles WHERE server_id = $1", [guildId]);
+                const { rowCount } = await runQuery("DELETE FROM reaction_roles WHERE server_id = $1", [guildId]);
                 message.channel.send(`Removed ${rowCount} server reaction roles.`);
             }
             return;
@@ -31,8 +34,6 @@ module.exports = {
         const targetChannelId = messageLink.split(targetServerId + "/")[1].split("/")[0];
         const targetMessageId = messageLink.split(targetChannelId + "/")[1].split("/")[0];
 
-        const guild = message.guild;
-        const guildId = guild.id;
 
         if (targetServerId != guildId) {
             message.reply("That message isn't in the server!");
@@ -94,7 +95,8 @@ module.exports = {
             message.channel.send("Updated existing reaction role listener.");
         } else {
             // Insert
-            await addRow("reaction_roles", [guildId, targetMessageId, emojiId, roleId]);
+            await runQuery("INSERT INTO reaction_roles (server_id, channel_id, message_id, role_id, emoji_id) VALUES ($1, $2, $3, $4, $5)", 
+                [guildId, targetMessage.channel.id, targetMessage.id, roleId, emojiId]);
             message.channel.send("Added new reaction role listener.");
         }
 

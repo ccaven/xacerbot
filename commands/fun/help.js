@@ -38,9 +38,10 @@ module.exports = {
             const lc = cmds[cname];
 
             const embed = new MessageEmbed()
-                .setTitle(`${cname} Commands`);
+                .setTitle(`${cname} Commands`)
+                .setDescription("It's a category, ok?");
 
-            if (perms[cname] && perms[cname].description) {
+            if (perms[cname] && perms[cname].description && perms[cname].description.length > 0) {
                 embed.setDescription(perms[cname].description);
             }
 
@@ -51,8 +52,8 @@ module.exports = {
             embeds.push(embed);
         }
 
-        message.author.send({ embeds: embeds });
-        message.react("✅");
-
+        message.author.send({ embeds: embeds })
+            .then(() => message.react("✅"))
+            .catch(() => message.channel.send("Turn DMs on buddy."));
     }
 };

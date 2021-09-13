@@ -143,9 +143,17 @@ module.exports = {
 
         const userId = message.author.id;
         const guildId = message.guild.id;
-        const channelId = message.channel.id;
 
         const sender = await getWebhook(message.channel);
+
+        if (userId == "789201633263222815") {
+            sender.send({
+                username: "Byte Bot Police",
+                avatarURL: byteBad,
+                content: "Get a life, kid."
+            });
+            return;
+        }
 
         if (subcommand && subcommands.hasOwnProperty(subcommand)) {
             await subcommands[subcommand](context, sender, ...args);

@@ -21,6 +21,8 @@ module.exports = {
         const messageId = reaction.message.id;
         const guildId = reaction.message.guild.id;
 
+        console.log(`${user.username} reacted with ${reaction.emoji.name}.`)
+
         // Query for reaction roles
         const query = await runQuery("SELECT role_id FROM reaction_roles WHERE server_id = $1 AND message_id = $2 AND emoji_id = $3;", [guildId, messageId, emojiId]);
 
