@@ -1,6 +1,9 @@
 const { Message, MessageEmbed } = require("discord.js");
+const { getCensored } = require("/home/pi/xacerbot/helper/censors.js");
+
 const fetch = require("node-fetch").default;
-const db = require("/home/pi/xacerbot/database.js");
+
+const { addRow } = require("/home/pi/xacerbot/database.js");
 
 // 30 second wait
 const waitTime = 1000 * 30;
@@ -51,13 +54,13 @@ async function empty () {
 
         const embed = new MessageEmbed()
             .setTitle(`Story requested by ${task.message.member.displayName}`)
-            .setDescription(text);
+            .setDescription(await getCensored(task.message.guild, text));
 
         await task.replyMessage.edit({
             embeds: [embed]
         });
 
-        await db.addRow("gpt_requests", [task.message.author.id, task.prompt, text, Date.now()]);
+        await addRow("gpt_requests", [task.message.author.id, task.prompt, text, Date.now()]);
 
         queue.shift();
         setTimeout(empty, waitTime);

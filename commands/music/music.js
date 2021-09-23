@@ -13,6 +13,8 @@ const voice = require(`@discordjs/voice`);
 const { opus } = require("prism-media");
 const { pipeline } = require("stream");
 
+// TODO: store playlist locally, not in database
+
 /**
  * @type {Discord.Collection<Discord.Snowflake, voice.VoiceConnection>}
  */

@@ -1,6 +1,4 @@
 
-require("dotenv").config();
-
 const glob = require('glob');
 
 const { Client, Collection, Intents, Message } = require("discord.js");
@@ -52,10 +50,7 @@ glob("/home/pi/xacerbot/callbacks/**/*", (_, res) => {
         }
         
         callbacks.get(type).set(callback.data.name, callback);
-
         callbackOrder.get(type).push(callback.data.name);
-
-        console.log(`Loaded ${type} callback ${filename}. Name: ${callback.data.name}`);
     }
 
     callbackOrder.forEach((arr, callbackType) => {
@@ -68,7 +63,6 @@ glob("/home/pi/xacerbot/callbacks/**/*", (_, res) => {
 
     callbackOrder.forEach((callbackArray, callbackType) => {
         client.on(callbackType, async (...eventArguments) => {
-            console.log(`Running callbacks of type ${callbackType}.`);
             callbackArray.forEach(callbackName => {
                 callbacks.get(callbackType).get(callbackName).execute(...eventArguments).catch(err => {
                     console.log(`Error running callback ${callbackName}: `, err);

@@ -1,5 +1,5 @@
 const { Message } = require("discord.js");
-const { getWebhook } = require("/home/pi/xacerbot/helper/webhooks.js");
+const { getWebhook, regenerateWebhook } = require("/home/pi/xacerbot/helper/webhooks.js");
 const { runQuery } = require("/home/pi/xacerbot/database.js");
 
 const possible = [
@@ -42,6 +42,17 @@ const pfps = [
     "https://cdn.discordapp.com/emojis/704168565137342544.png?v=1"
 ];
 
+function sendHaha (message, del=true) {
+    getWebhook(message.channel).then(async hook => {
+        await hook.send({
+            username: possible[Math.random() * possible.length | 0].toUpperCase() + " BOT",
+            avatarURL: pfps[Math.random() * pfps.length | 0],
+            content: possible[Math.random() * possible.length | 0]
+        });
+        if (del) await message.delete();
+    });
+}
+
 module.exports = {
     data: {
         name: "haha",
@@ -50,6 +61,7 @@ module.exports = {
         priority: -1
     },
     initialize () {},
+    sendHaha: sendHaha,
     /**
      * @param {Message} message
      */
@@ -59,14 +71,14 @@ module.exports = {
 
         if (!hook) return;
 
-        const ishaha = message.content.match(/^(ha)+$/i);
-        if (!message.author.bot && (possible.includes(message.content.split(" ")[0]) || ishaha)) {
-            setTimeout(() => hook.send({
-                username: possible[Math.random() * possible.length | 0].toUpperCase() + " BOT",
-                avatarURL: pfps[Math.random() * pfps.length | 0],
-                content: possible[Math.random() * possible.length | 0]
-            }), Math.random() * 5000 + 1000);
+        let content = message.content;
+        const ishaha = content.match(/^(ha)+$/i);
 
+        if (!message.author.bot && (possible.includes(message.content.split(" ")[0]) || ishaha)) {
+            if (Math.random() > 0.8) {
+                setTimeout(sendHaha, Math.random() * 5000 + 1000, message, false);
+            }
+            
             // Check database for user
             const { rows, rowCount } = runQuery("SELECT id, num_responses FROM haha_responses WHERE user_id = $1 AND server_id = $2 LIMIT 1", [message.author.id, message.guild.id]);
             if (rowCount > 0) {

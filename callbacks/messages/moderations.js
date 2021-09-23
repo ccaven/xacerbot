@@ -2,6 +2,7 @@
 const db = require("/home/pi/xacerbot/database.js");
 const { Message, Client } = require("discord.js");
 const { getWebhook } = require("/home/pi/xacerbot/helper/webhooks.js");
+const { getCensored, includesCensors } = require("/home/pi/xacerbot/helper/censors.js");
 
 const tierCallbacks = [
     /**
@@ -89,39 +90,29 @@ module.exports = {
         
 
         // Get censors of server
-        const serverCensors = await db.runQuery(`SELECT word, tier FROM censors WHERE server_id = $1;`, [guildId]);
+        if (!includesCensors(message)) return;
 
-        let text = message.content.toLowerCase();
+        let text = message.content;
 
-        let maxTier = 0;
-        for (let i = 0; i < serverCensors.rows.length; i++) {
-            const censor = serverCensors.rows[i].word;
-            const tier = serverCensors.rows[i].tier;
+        let clean = await getCensored(message.guild, text);
 
-            while (text.toLowerCase().includes(censor)) {
-                text = text.replace(censor, censor[0] + "\\*".repeat(censor.length-1));
-                maxTier = Math.max(maxTier, tier); 
+        const webhook = await getWebhook(message.channel);
+        
+        const name = message.member ? message.member.displayName : message.author.username;
+
+        await webhook.send({
+            username: name,
+            avatarURL: message.author.avatarURL({ dynamic: true }),
+            content: clean,
+            allowedMentions: {
+                users: [],
+                roles: [],
+                repliedUser: false
             }
-        }
+        });
 
-        if (maxTier > 0) { 
-            const webhook = await getWebhook(message.channel);
-            
-            const name = message.member ? message.member.displayName : message.author.username;
-
-            await webhook.send({
-                username: name,
-                avatarURL: message.author.avatarURL({ dynamic: true }),
-                content: text,
-                allowedMentions: {
-                    users: [],
-                    roles: [],
-                    repliedUser: false
-                }
-            });
-
-            message.delete();
-            // await tierCallbacks[maxTier - 1](message, client);
-        }
+        message.delete();
+        // await tierCallbacks[maxTier - 1](message, client);
+        
     }
 };

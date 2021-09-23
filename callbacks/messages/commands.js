@@ -31,7 +31,6 @@ module.exports = {
                 const cmd = require(filename);
                 cmd.filename = filename;
                 cmd.category = category;
-                console.log(`Loading file ${filename}...\n\tCategory ${category}\n\tName ${cmd.data.name}`);
                 commands.set(cmd.data.name, cmd);
             }
         });
@@ -54,7 +53,7 @@ module.exports = {
 
         // Break the text down into the name and arguments
         const commandChunks = commandText
-            .replace("\n", "")
+            .replace(/(\r\n|\n|\r)/gm, " ")
             .match(/(?:[^\s"]+|"[^"]*")+/g)
             .map(s => s.replace(/['"]+/g, ''));
 

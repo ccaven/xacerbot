@@ -2,6 +2,8 @@ const { Message } = require("discord.js");
 
 const { getEmojiByName } = require("/home/pi/xacerbot/helper/emojis.js");
 
+const detectedEmojis = ["cozy", "think", "uwu", "owo"];
+
 module.exports = {
     data: {
         name: "think",
@@ -14,19 +16,17 @@ module.exports = {
      * @param {Message} message
      */
     async execute (message) {
-        let react = false;
+        
         const emojis = message.content.match(/<:.+?:\d+>/g);
         
         if (emojis) emojis.forEach(emojiText => {
             const emojiName = emojiText.split(":")[1];
-            if (emojiName.startsWith("think")) {
-                react = true;
-            }
+            detectedEmojis.forEach(async detectedEmojiName => {
+                if (emojiName.startsWith(detectedEmojiName)) {
+                    const emoji = getEmojiByName(detectedEmojiName);
+                    if (emoji) await message.react(emoji);
+                }
+            });
         });
-        
-        if (react) {
-            const emoji = getEmojiByName("think");
-            if (emoji) message.react(emoji);
-        }
     }
 };
