@@ -1,6 +1,5 @@
 const { Message, MessageEmbed } = require("discord.js");
 const { getWebhook } = require("/home/pi/xacerbot/helper/webhooks.js");
-const { inspect } = require("util");
 
 const pfpUrl = "https://xacer.dev/xacerbot/simulation_pfp.jpg";
 
@@ -15,6 +14,10 @@ module.exports = {
     */
     async execute(context) {
         const { message } = context;
+
+        const guild = message.guild;
+
+        const webhook = await getWebhook(message.channel);
 
         if (message.author.id != "683115379899498526") {
             await message.channel.send("Only xacer can use this command.");
@@ -52,7 +55,6 @@ module.exports = {
             embed.addField("Evaluated:", "[ empty string ]");
         }
 
-        const webhook = await getWebhook(message.channel);
 
         webhook.send({
             username: "The Simulation",

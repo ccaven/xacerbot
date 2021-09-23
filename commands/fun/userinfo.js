@@ -49,7 +49,7 @@ module.exports = {
      * @param {String} username 
      */
     async execute(context, username) {
-        const {message, client, commands} = context;
+        const { message } = context;
 
         const allmembers = await message.guild.members.fetch();
 

@@ -3,33 +3,38 @@ require("dotenv").config();
 const ytsr = require("ytsr");
 const ytdl = require('ytdl-core');
 
-const fs = require('fs');
+const { Snowflake, VoiceChannel, Collection, Message, MessageEmbed } = require('discord.js');
 
-const Discord = require('discord.js');
-const db = require("/home/pi/xacerbot/database.js");
+const { getWebhook } = require("/home/pi/xacerbot/helper/webhooks.js");
 
-const voice = require(`@discordjs/voice`);
-
-const { opus } = require("prism-media");
-const { pipeline } = require("stream");
-
-// TODO: store playlist locally, not in database
+const { 
+    VoiceConnection, AudioPlayer, 
+    joinVoiceChannel, createAudioResource, 
+    createAudioPlayer, entersState, 
+    VoiceConnectionStatus } = require(`@discordjs/voice`);
 
 /**
- * @type {Discord.Collection<Discord.Snowflake, voice.VoiceConnection>}
+ * @type {Collection<Snowflake, VoiceConnection>}
  */
-const connections = new Discord.Collection();
+const connections = new Collection();
 
 /**
- * @type {Discord.Collection<Discord.Snowflake, voice.AudioPlayer}
+ * @type {Collection<Snowflake, AudioPlayer}
  */
-const audioPlayers = new Discord.Collection();
+const audioPlayers = new Collection();
+
+/**
+ * @type {Collection<Snowflake, ServerQueue>}
+ */
+const serverQueues = new Collection();
+
+const vibeImg = "https://i.pinimg.com/originals/09/f4/72/09f4726125ab5fa8cbcf754b9ba07e7c.jpg";
 
 /**
  * Connect to a channel, or if it is already connected
  * return that connection
- * @param {Discord.VoiceChannel} channel 
- * @returns {Promise<voice.VoiceConnection>}
+ * @param {VoiceChannel} channel 
+ * @returns {Promise<VoiceConnection>}
  */
 async function getConnection (channel) {
     const guildId = channel.guild.id;
@@ -49,11 +54,13 @@ async function getConnection (channel) {
 
         old.disconnect();
         old.destroy();
-        connections.delete(guildId); 
+
+        connections.delete(guildId);
+        serverQueues.delete(guildId);
     }
 
     // Initialize the connection
-    const connection = voice.joinVoiceChannel({
+    const connection = joinVoiceChannel({
         guildId: guildId,
         channelId, channelId,
         adapterCreator: channel.guild.voiceAdapterCreator,
@@ -62,7 +69,7 @@ async function getConnection (channel) {
 
     connections.set(guildId, connection);
 
-    await voice.entersState(connection, voice.VoiceConnectionStatus.Ready, 20e3);
+    await entersState(connection, VoiceConnectionStatus.Ready, 20e3);
 
     connection.receiver.speaking.on('start', (userId) => {
         console.log(`${userId} has started talking.`);
@@ -71,7 +78,7 @@ async function getConnection (channel) {
 
     // Initialize the audio player
     if (!audioPlayers.has(guildId)) {
-        const audioPlayer = voice.createAudioPlayer();
+        const audioPlayer = createAudioPlayer();
         audioPlayers.set(guildId, audioPlayer);
     }
 
@@ -80,121 +87,227 @@ async function getConnection (channel) {
     return connection;
 }
 
-const subcommands = {
+/**
+ * Represents the queue in a single server
+ */
+class ServerQueue {
     /**
-     * Add a song to the queue
-     * @param {{client: Discord.Client, commands: Discord.Collection<string, object>, message: Discord.Message}} context 
-     * @param  {...any} args 
+     * 
+     * @param {VoiceChannel} channel 
      */
-    add: async (context, ...args) => {
-        const { message } = context;
+    static async create (channel) {
+        const queue = new ServerQueue();
 
-        if (!args.length) {
-            await message.reply("Enter a valid search!");
-            return;
-        }
+        await queue.setup(channel);
 
-        // Search
-        const name = args.join(" ");
-        
-        const searchResults = await ytsr(name, {
+        serverQueues.set(channel.guild.id, queue);
+
+        return queue;
+    }
+
+    /**
+     * 
+     * @param {VoiceChannel} channel 
+     */
+    async setup (channel) {
+        this.guildId = channel.guild.id;
+
+        this.connection = await getConnection(channel);
+
+        this.connection.on("stateChange", (_, state) => {
+            if (state == VoiceConnectionStatus.Disconnected) {
+                serverQueues.delete(this.guildId);
+            }
+        });
+
+        this.audioPlayer = audioPlayers.get(this.guildId);
+
+        /**
+         * @type {ytsr.Item[]}
+         */
+        this.playlist = [];
+
+        this.playing = false;
+        this.paused = false;
+
+        /**
+         * @type {ReadableStream}
+         */
+        this.currentStream = null;
+    }
+
+    async addSong (query) {
+        if (!query.length) return;
+    
+        const filters = await ytsr.getFilters(query);
+        const videoFilter = filters.get("Type").get("Video");
+        const videoUrl = videoFilter.url;
+        const searchResults = await ytsr(videoUrl, {
             limit: 1
         });
 
-        const result = searchResults.items[0];
+        if (!searchResults.items.length) return;
 
-        const title = result.title;
-        const url = result.url;
-        const author = result.author ? result.author.name : result.owner ? result.owner.name : "Unknown";
-        // Add it to the queue
+        this.playlist.push(searchResults.items[0]);
+
+        return searchResults.items[0];
+    }
+
+    hasNext () {
+        return this.playlist.length > 0;
+    }
+    
+    nextSong () {
+        if (!this.hasNext()) return null;
+        return this.playlist.shift();
+    }
+
+    clearQueue () {
+        this.playlist.length = 0;
+    }
+
+    async start () {
+        const song = this.nextSong();
+        const url = song.url;
         
-        const guildId = context.message.guild.id;
-        let queueNumber = 0;
-        
-        const lastQueue = await db.runQuery("SELECT queue_order FROM music_queue WHERE server_id = $1 ORDER BY queue_order DESC", [guildId]);
-        if (lastQueue.rowCount > 0)
-            queueNumber = lastQueue.rows[0].queue_order + 1;
-        
-        await db.addRow("music_queue", [guildId, queueNumber, title, author, url]);
-        
-        await message.reply(`Added **${title}** by **${author}**`);
-    },
+        const readStream = ytdl.downloadFromInfo(await ytdl.getInfo(url), {
+            highWaterMark: 1 << 25
+        });
+
+        // TODO: Stream buffer
+
+        const resource = createAudioResource(readStream);
+
+        this.audioPlayer.play(resource);
+
+        this.currentStream = readStream;
+    }
+
+    pause () {
+        if (!this.playing) return;
+
+        this.audioPlayer.pause();
+        this.paused = true;
+    }
+
+    unpause () {
+        if (!this.playing) return;
+
+        this.audioPlayer.unpause();
+        this.paused = false;
+    }
+
+    stop () {
+        this.paused = false;
+        this.playing = false;
+
+        this.audioPlayer.stop();
+    }
+}
+
+async function searchForSong (query) {
+    if (!query.length) return;
+    
+    const filters = await ytsr.getFilters(query);
+    const videoFilter = filters.get("Type").get("Video");
+    const videoUrl = videoFilter.url;
+    const searchResults = await ytsr(videoUrl, {
+        limit: 1
+    });
+
+    return searchResults;
+}
+
+async function sendNotConnected (message) {
+    const hook = await getWebhook(message.channel);
+    const embed = new MessageEmbed();
+
+    embed.setTitle("Oh no!");
+    embed.setDescription(`<@${message.member.id}>, xacerbot isn't connected to a voice channel!`);
+
+    await hook.send({
+        username: "Vibe Bot",
+        avatarURL: vibeImg,
+        embeds: [embed]
+    });
+}
+
+const subcommands = {
     /**
-     * Go to the next song in the queue
-     * @param {{client: Discord.Client, commands: Discord.Collection<string, object>, message: Discord.Message}} context 
+     * Add a song to the queue
+     * @param {{message: Message}} context 
+     * @param  {...string} args 
      */
-    next: async (context) => {
-        const { message } = context;
+    add: async (context, ...args) => {
+        const { message } = context;        
         const guildId = message.guild.id;
+        const hook = await getWebhook(message.channel);
 
-        // A couple actions:
-        if (!audioPlayers.has(guildId)) {
-            await message.channel.send("I'm not connected to a voice channel!");
-            return;
-        }
+        if (!serverQueues.has(guildId))
+            return sendNotConnected(message);
+        
 
-        // Stop playing current song
-        if (audioPlayers.get(guildId).state == "playing") audioPlayers.get(guildId).stop();
+        const queue = serverQueues.get(guildId);
+        const query = args.join(" ");
+        console.log(`Searching for song: ${query}`);
 
-        // Delete where server id matches and queue = 0
-        // Bump down queue when server id matches
-        await db.runQuery("UPDATE music_queue SET queue_order = queue_order - 1 WHERE server_id = $1", [guildId]);
-        await db.runQuery("DELETE FROM music_queue WHERE queue_order < 0");
+        const item = await queue.addSong(args.join(" "));
 
-        // Make sure there is another song
-        const query = await db.runQuery("SELECT * FROM music_queue WHERE server_id = $1", [guildId]);
-        if (query.rowCount > 0) {
-            // Start playing new song
-            subcommands.play(context);
+        console.log(item);
+
+        const embed = new MessageEmbed();
+
+        if (item) {
+            console.log(item);
+
+            let author = "Unknown";
+
+            if (item.author && item.author.name && item.author.name.length) author = item.author.name;
+
+            const description = `Uploaded ${item.uploadedAt} by ${author}.\nViews: ${item.views.toString().replace(/(?<=\d)(?=(\d\d\d)+(?!\d))/g, ",")}`;
+
+            embed.setTitle(`Added song: ${item.title || "Unknown title"}`);
+            embed.setDescription(description);
+
+            if (item.bestThumbnail) {
+                embed.setImage(item.bestThumbnail.url);
+                embed.setURL(item.url);
+            }
+
+            hook.send({
+                username: "Vibe Bot",
+                avatarURL: vibeImg,
+                embeds: [embed]
+            });
         } else {
-            message.channel.send("Finished queue.");
+
+            embed.setTitle("Oh no...");
+            embed.setDescription("Something went wrong!");
+
+            hook.send({
+                username: "Vibe Bot",
+                avatarURL: vibeImg,
+                embeds: [embed]
+            });
         }
-    },
-
-    /**
-     * Get the queue
-     * @param {{client: Discord.Client, commands: Discord.Collection<string, object>, message: Discord.Message}} context 
-     */
-    queue: async (context) => {
-        const { message } = context;
-
-
-        // Retrieve the queue
-        const guildId = message.guild.id;
-        const query = await db.runQuery("SELECT * FROM music_queue WHERE server_id = $1", [guildId]);
-
-        if (query.rowCount == 0) {
-            await message.reply("There are **0** songs in the queue.")
-        } else {
-            const msg = query.rows.map(row => `**${row.queue_order + 1}.** ${row.song_name}`).join("\n");
-            await message.reply(msg);
-        }
-    },
-
-    /**
-     * Clear all items from the queue
-     * @param {{client: Discord.Client, commands: Discord.Collection<string, object>, message: Discord.Message}} context 
-     */
-    clear: async (context) => {
-        const { message } = context;
-
-        // Clear the queue and stop playing
-        const guildId = message.guild.id;
-        const query = await db.runQuery("DELETE FROM music_queue WHERE server_id = $1", [guildId]);
-
-        if (query.rowCount > 1)
-            await message.reply(`Removed ${query.rowCount} items from queue.`);
-        else if (query.rowCount == 1) 
-            await message.reply(`Removed ${query.rowCount} item from queue.`);
-        else
-            await message.reply(`There aren't any items in the queue.`);
-        
-        if (audioPlayers.has(guildId)) audioPlayers.get(guildId).stop();
     },
 
     /**
      * Connect to a voice channel
-     * @param {{client: Discord.Client, commands: Discord.Collection<string, object>, message: Discord.Message}} context 
+     * @param {{message: Message}} context 
+     */
+    queue: async (context) => {
+
+        const { message } = content;
+
+        if (!serverQueues.has(guildId)) return sendNotConnected(message);
+
+
+    },
+
+    /**
+     * Connect to a voice channel
+     * @param {{message: Message}} context 
      */
     connect: async (context) => {
         const { message, client } = context;
@@ -214,14 +327,14 @@ const subcommands = {
             return;
         }
 
-        await getConnection(voiceChannel);
+        await ServerQueue.create(voiceChannel);
 
         await message.reply("Connected!");
     },
 
     /**
      * Disconnect from a channel
-     * @param {{client: Discord.Client, commands: Discord.Collection<string, object>, message: Discord.Message}} context 
+     * @param {{message: Message}} context 
      */
     disconnect: async (context) => {
         const guildId = context.message.guild.id;
@@ -234,58 +347,12 @@ const subcommands = {
             player = null;
             audioPlayers.delete(guildId);
 
+            serverQueues.delete(guildId);
+
             await context.message.reply("Goodbye!");
             return;
         }
         await context.message.reply("No existing connections found!");
-    },
-
-    /**
-     * Start playing audio
-     * @param {{client: Discord.Client, commands: Discord.Collection<string, object>, message: Discord.Message}} context 
-     */
-    play: async (context, ...args) => {
-        
-        const { message } = context;
-        const guildId = message.guild.id;
-
-        if (!connections.has(guildId)) {
-            await subcommands.connect(context);
-        }
-
-        if (args.join(" ").length > 2) {
-            await subcommands.add(context, ...args);
-        }
-
-        const player = audioPlayers.get(guildId);
-
-        const { rowCount, rows } = await db.runQuery("SELECT song_name, song_url FROM music_queue WHERE server_id = $1 ORDER BY queue_order ASC", [guildId]);
-
-        if (rowCount > 0) {
-
-            const url = rows[0].song_url;
-            try {
-                const readStream = ytdl.downloadFromInfo(await ytdl.getInfo(url), {
-                    highWaterMark: 1 << 25
-                });
-
-                const resource = voice.createAudioResource(readStream);
-
-                player.play(resource);
-
-                readStream.on("end", () => {
-                    console.log("Song finished");
-                    subcommands.next(context);
-                });
-
-                await message.channel.send(`Now playing ${rows[0].song_name}.`);
-            } catch (e) {
-                await message.channel.send(`Error: ${e.message}`);
-            }
-        }
-
-        return false;
-
     },
 
 };
