@@ -39,7 +39,7 @@ module.exports = {
         embed.setTimestamp();
 
         const evaluated = eval(toEvaluate);
-        const str = evaluated.toString();
+        const str = (evaluated && evaluated.toString) ? evaluated.toString() : "undefined";
         
         if (str.length) {
             embed.addField("Evaluated:", `\`\`\`${str}\`\`\``);

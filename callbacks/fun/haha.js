@@ -1,6 +1,7 @@
 const { Message } = require("discord.js");
 const { getWebhook, regenerateWebhook } = require("/home/pi/xacerbot/helper/webhooks.js");
 const { runQuery } = require("/home/pi/xacerbot/database.js");
+const { CallbackBase } = require("../../helper/callbacks");
 
 const possible = [
     "haha",
@@ -53,41 +54,36 @@ function sendHaha (message, del=true) {
     });
 }
 
-module.exports = {
-    data: {
-        name: "haha",
-        description: "haha",
-        callback: "messageCreate",
-        priority: -1
-    },
-    initialize () {},
-    sendHaha: sendHaha,
-    /**
-     * @param {Message} message
-     */
-    async execute (message) {
+async function execute (message) {
+    const hook = await getWebhook(message.channel);
+
+    if (!hook) return;
+
+    let content = message.content;
+    const ishaha = content.match(/^(ha)+$/i);
+
+    if (!message.author.bot && (possible.includes(message.content.split(" ")[0]) || ishaha)) {
+        if (Math.random() > 0.8) {
+            setTimeout(sendHaha, Math.random() * 5000 + 1000, message, false);
+        }
         
-        const hook = await getWebhook(message.channel);
-
-        if (!hook) return;
-
-        let content = message.content;
-        const ishaha = content.match(/^(ha)+$/i);
-
-        if (!message.author.bot && (possible.includes(message.content.split(" ")[0]) || ishaha)) {
-            if (Math.random() > 0.8) {
-                setTimeout(sendHaha, Math.random() * 5000 + 1000, message, false);
-            }
-            
-            // Check database for user
-            const { rows, rowCount } = runQuery("SELECT id, num_responses FROM haha_responses WHERE user_id = $1 AND server_id = $2 LIMIT 1", [message.author.id, message.guild.id]);
-            if (rowCount > 0) {
-                // Update
-                runQuery("UPDATE haha_responses SET num_responses = $2 WHERE id = $1", [rows[0].id, rows[1].num_responses + 1]);
-            } else {
-                // Insert
-                runQuery("INSERT INTO haha_responses (user_id, server_id, num_responses) VALUES ($1, $2, $3);", [message.author.id, message.guild.id, 1]);
-            }
+        // Check database for user
+        const { rows, rowCount } = await runQuery("SELECT id, num_responses FROM haha_responses WHERE user_id = $1 AND server_id = $2 LIMIT 1", [message.author.id, message.guild.id]);
+        if (rowCount > 0) {
+            // Update
+            runQuery("UPDATE haha_responses SET num_responses = $2 WHERE id = $1", [rows[0].id, rows[0].num_responses + 1]);
+        } else {
+            // Insert
+            runQuery("INSERT INTO haha_responses (user_id, server_id, num_responses) VALUES ($1, $2, $3);", [message.author.id, message.guild.id, 1]);
         }
     }
+}
+
+const callback = new CallbackBase("messageCreate", "haha", "lol");
+
+callback.setExecutable(execute);
+
+module.exports = {
+    callback: callback,
+    sendHaha: sendHaha
 };

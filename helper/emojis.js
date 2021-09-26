@@ -3,7 +3,7 @@ const { Client, Collection, GuildEmoji } = require("discord.js");
 /**
  * @type {Collection<string, GuildEmoji>}
  */
-const emojiCache = new Collection();
+let emojiCache = new Collection();
 
 /**
  * 
@@ -14,11 +14,7 @@ async function initializeEmojis (client) {
 
     const xacerbotServer = (await client.guilds.fetch()).find(guild => guild.id == xacerbotServerId);
 
-    const emojis = await xacerbotServer.fetch().then(guild => guild.emojis.fetch());
-
-    emojis.forEach(emoji => {
-        emojiCache.set(emoji.id, emoji);
-    });
+    emojiCache = await xacerbotServer.fetch().then(guild => guild.emojis.fetch());
 }
 
 function getEmojiByName (name) {

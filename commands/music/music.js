@@ -3,6 +3,8 @@ require("dotenv").config();
 const ytsr = require("ytsr");
 const ytdl = require('ytdl-core');
 
+const { ReadableStreamBuffer } = require('stream-buffers');
+
 const { Snowflake, VoiceChannel, Collection, Message, MessageEmbed } = require('discord.js');
 
 const { getWebhook } = require("/home/pi/xacerbot/helper/webhooks.js");
@@ -11,7 +13,9 @@ const {
     VoiceConnection, AudioPlayer, 
     joinVoiceChannel, createAudioResource, 
     createAudioPlayer, entersState, 
-    VoiceConnectionStatus } = require(`@discordjs/voice`);
+    VoiceConnectionStatus, 
+    AudioPlayerStatus,
+    AudioResource} = require(`@discordjs/voice`);
 
 /**
  * @type {Collection<Snowflake, VoiceConnection>}
@@ -100,6 +104,7 @@ class ServerQueue {
 
         await queue.setup(channel);
 
+        console.log(`Setting server queue for guild ${channel.guild.id} \n`, queue);
         serverQueues.set(channel.guild.id, queue);
 
         return queue;
@@ -114,13 +119,20 @@ class ServerQueue {
 
         this.connection = await getConnection(channel);
 
-        this.connection.on("stateChange", (_, state) => {
-            if (state == VoiceConnectionStatus.Disconnected) {
-                serverQueues.delete(this.guildId);
+        this.audioPlayer = audioPlayers.get(this.guildId);
+
+        this.audioPlayer.on("stateChange", (prev, state) => {
+
+            console.log(`Finished audio, changing state from ${prev.status} to ${state.status}`);
+
+            if (prev.status == AudioPlayerStatus.Playing && state.status == AudioPlayerStatus.Idle) {
+                if (this.hasNext()) this.start();
+                else {
+                    this.playing = false;
+                    this.paused = false;
+                }
             }
         });
-
-        this.audioPlayer = audioPlayers.get(this.guildId);
 
         /**
          * @type {ytsr.Item[]}
@@ -128,29 +140,56 @@ class ServerQueue {
         this.playlist = [];
 
         this.playing = false;
+
         this.paused = false;
 
         /**
          * @type {ReadableStream}
          */
         this.currentStream = null;
+
+        /**
+         * @type {AudioResource}
+         */
+        this.currentResource = null;
+
+        /**
+         * @type {ytsr.Item}
+         */
+        this.lastPlayed = null;
+
+        this.volumePercent = 1.0;
+    }
+
+    getVolumeDecibels () {
+        return this.currentResource.volume.volumeDecibels;
+    }
+
+    setVolume (percent) {
+        this.volumePercent = Math.max(Math.min(percent, 4.0), 0.25);
+        this.currentResource.volume.setVolume(this.volumePercent);
     }
 
     async addSong (query) {
         if (!query.length) return;
     
         const filters = await ytsr.getFilters(query);
+
         const videoFilter = filters.get("Type").get("Video");
+
         const videoUrl = videoFilter.url;
+
         const searchResults = await ytsr(videoUrl, {
             limit: 1
         });
 
         if (!searchResults.items.length) return;
 
-        this.playlist.push(searchResults.items[0]);
+        const song = searchResults.items[0];
 
-        return searchResults.items[0];
+        this.playlist.push(song);
+
+        return song;
     }
 
     hasNext () {
@@ -168,17 +207,40 @@ class ServerQueue {
 
     async start () {
         const song = this.nextSong();
-        const url = song.url;
+
+        this.lastPlayed = song;
+
+        const url = song.url;   
         
-        const readStream = ytdl.downloadFromInfo(await ytdl.getInfo(url), {
-            highWaterMark: 1 << 25
+        const info = await ytdl.getInfo(url);
+
+        console.log(info.formats);
+
+        const readStream = ytdl.downloadFromInfo(info, {
+            highWaterMark: 1 << 25,
+            filter: format => format.mimeType.startsWith("audio/mp4"),
+            dlChunkSize: 0,
+            format: ytdl.chooseFormat(info.formats, { "filter": "audioonly" })
         });
 
         // TODO: Stream buffer
 
-        const resource = createAudioResource(readStream);
+        const resource = createAudioResource(readStream, {
+            inlineVolume: true
+        });
+
+        /*
+        if (this.currentStream) {
+            await this.currentStream.cancel();
+        }
+        */
+
+        this.currentResource = resource;
+        this.currentResource.volume.setVolume(this.volumePercent);
 
         this.audioPlayer.play(resource);
+
+        this.playing = true;
 
         this.currentStream = readStream;
     }
@@ -237,7 +299,7 @@ const subcommands = {
      * Add a song to the queue
      * @param {{message: Message}} context 
      * @param  {...string} args 
-     */
+     */ 
     add: async (context, ...args) => {
         const { message } = context;        
         const guildId = message.guild.id;
@@ -249,17 +311,12 @@ const subcommands = {
 
         const queue = serverQueues.get(guildId);
         const query = args.join(" ");
-        console.log(`Searching for song: ${query}`);
 
         const item = await queue.addSong(args.join(" "));
-
-        console.log(item);
 
         const embed = new MessageEmbed();
 
         if (item) {
-            console.log(item);
-
             let author = "Unknown";
 
             if (item.author && item.author.name && item.author.name.length) author = item.author.name;
@@ -292,16 +349,81 @@ const subcommands = {
         }
     },
 
+    "+": async (...args) => subcommands.add(...args),
+
     /**
-     * Connect to a voice channel
+     * Add a song to the queue
      * @param {{message: Message}} context 
+     * @param  {string} volumePercent 
+     */ 
+    volume: async (context, volumePercent) => {
+        const { message } = context;
+
+        let isPercent = volumePercent[volumePercent.length - 1] == "%";
+
+        // Remove non-alphanumeric
+        volumePercent = volumePercent.replace(/[^\d.-]/g, "")
+        volumePercent = parseFloat(volumePercent);
+        
+        if (!volumePercent) {
+            // Bad
+        } else {
+            if (isPercent) volumePercent *= 100.0;
+
+            const guildId = message.guild.id;
+
+            if (!serverQueues.has(guildId)) return sendNotConnected(message);
+
+            const queue = serverQueues.get(guildId);
+
+            queue.setVolume(volumePercent);
+
+            const hook = await getWebhook(message.channel);
+            hook.send({
+                username: "Vibe Bot",
+                avatarURL: vibeImg,
+                embeds: [
+                    {
+                        title: `Set volume to ${queue.volumePercent*100}%`,
+                        description: `This is equivalent to ${queue.getVolumeDecibels()} dB`
+                    }
+                ]
+            });
+        }
+    },
+
+    /**
+     * Start the queue
+     * @param {{message: Message}} context 
+     * @param  {...string} args 
      */
-    queue: async (context) => {
+    play: async (context, ...args) => {
 
-        const { message } = content;
+        const { message } = context;
 
-        if (!serverQueues.has(guildId)) return sendNotConnected(message);
+        const guildId = message.guild.id;
 
+        let queue;
+
+        if (!serverQueues.has(guildId)) {
+            queue = await subcommands.connect(context);
+        } else {
+            queue = serverQueues.get(guildId);
+        }
+
+        const newSong = args.join(" ");
+
+        if (newSong.length > 3) {
+            await subcommands.add(context, newSong);
+        }
+
+        if (queue.paused) {
+            queue.unpause();
+        }
+
+        if (!queue.playing) {
+            queue.start();
+        }
 
     },
 
@@ -309,9 +431,176 @@ const subcommands = {
      * Connect to a voice channel
      * @param {{message: Message}} context 
      */
+    queue: async (context) => {
+
+        const { message } = context;
+
+        const guildId = message.guild.id;
+
+        if (!serverQueues.has(guildId)) return sendNotConnected(message);
+
+        const queue = serverQueues.get(guildId);
+        const queueLength = queue.playlist.length;
+
+        const embed = new MessageEmbed();
+
+        embed.setTitle(`Queue for server ${message.guild.name}:`);
+        embed.setDescription(`There are ${queueLength} songs in the queue.`);
+
+        if (queue.playing) {
+            const songDuration = queue.lastPlayed.duration;
+            const timePlayed = queue.audioPlayer.state.playbackDuration
+            embed.addField("Currently playing", queue.lastPlayed.title);
+        }
+        
+
+        if (queueLength > 0)
+            embed.addField("Up Next", queue.playlist.map((e, i) => `${i+1}. ${e.title}`).join("\n"));
+
+        const hook = await getWebhook(message.channel);
+
+        hook.send({
+            username: "Vibe Bot",
+            avatarURL: vibeImg,
+            embeds: [embed]
+        });
+    },
+
+    q: async (...args) => subcommands.queue(...args),
+
+    /**
+     * Clear the queue
+     * @param {{message: Message}} context 
+     */
+    clear: async (context) => {
+        const { message } = context;
+
+        const guildId = message.guild.id;
+
+        if (!serverQueues.has(guildId)) return sendNotConnected(message);
+
+        const queue = serverQueues.get(guildId);
+
+        const queueLength = queue.playlist.length;
+
+        queue.stop();
+        queue.clearQueue();
+
+        const embed = new MessageEmbed();
+
+        embed.setTitle(`Cleared queue for server ${message.guild.name}`);
+
+        if (queueLength == 0) embed.setDescription(`Removed ${queueLength} items.`);
+        else embed.setDescription(`Removed ${queueLength} items.`);
+
+        const hook = await getWebhook(message.channel);
+
+        hook.send({
+            username: "Vibe Bot",
+            avatarURL: vibeImg,
+            embeds: [embed]
+        });
+    },
+
+    pause: async (context) => {
+        const { message } = context;
+
+        const guildId = message.guild.id;
+
+        if (!serverQueues.has(guildId)) return sendNotConnected(message);
+
+        const queue = serverQueues.get(guildId);
+        const hook = await getWebhook(message.channel);
+
+        if (!queue.playing) {
+            hook.send({
+                username: "Vibe Bot",
+                avatarURL: vibeImg,
+                embeds: [
+                    {
+                        title: `Nothing is currently playing.`,
+                        description: queue.lastPlayed ? `Last played was ${queue.lastPlayed.title}` : `Nothing has been played yet!`
+                    }
+                ]
+            });
+            return;
+        }
+
+        queue.pause();
+
+        const playbackMillis = queue.currentResource.playbackDuration;
+        const playbackSeconds = playbackMillis / 1000 | 0;
+
+        const songDuration = queue.lastPlayed.duration;
+
+        const embed = new MessageEmbed();
+
+        embed.setTitle("Set playback state to paused.");
+        embed.setDescription(`Ongoing track: ${queue.lastPlayed.title}`);
+
+        embed.addField("Playback duration", `${playbackSeconds/60|0}:${playbackSeconds%60}`, true);
+        embed.addField("Song Duration", songDuration, true);
+
+        embed.setThumbnail(queue.lastPlayed.bestThumbnail.url);
+
+        hook.send({
+            username: "Vibe Bot",
+            avatarURL: vibeImg,
+            embeds: [embed]
+        });
+    },
+
+    resume: async (context) => {
+        const { message } = context;
+
+        const guildId = message.guild.id;
+
+        if (!serverQueues.has(guildId)) return sendNotConnected(message);
+
+        const queue = serverQueues.get(guildId);
+
+        const hook = await getWebhook(message.channel);
+
+        if (!queue.playing) {
+            hook.send({
+                username: "Vibe Bot",
+                avatarURL: vibeImg,
+                embeds: [
+                    {
+                        title: `Nothing is currently playing.`,
+                        description: queue.lastPlayed ? `Last played was ${queue.lastPlayed.title}` : `Nothing has been played yet!`
+                    }
+                ]
+            });
+            return;
+        }
+
+        queue.unpause();
+
+        const embed = new MessageEmbed();
+
+        embed.setTitle("Set playback state to paused.");
+        embed.setDescription(`Ongoing track: ${queue.lastPlayed.title}`);
+
+        embed.addField("Playback duration", `${playbackSeconds/60|0}:${playbackSeconds%60}`, true);
+        embed.addField("Song Duration", songDuration, true);
+
+        embed.setImage(queue.lastPlayed.bestThumbnail.url);
+
+        hook.send({
+            username: "Vibe Bot",
+            avatarURL: vibeImg,
+            embeds: [embed]
+        });
+    },
+    unpause: async (...args) => await subcommands.resume(...args),
+
+    /**
+     * Connect to a voice channel
+     * @param {{message: Message}} context 
+     */
     connect: async (context) => {
         const { message, client } = context;
-        const guildId = message.guild.id;
 
         // Determine if xacerbot is in a voice channel
         const voiceChannel = message.member.voice.channel;
@@ -327,10 +616,14 @@ const subcommands = {
             return;
         }
 
-        await ServerQueue.create(voiceChannel);
+        const queue = await ServerQueue.create(voiceChannel);
 
         await message.reply("Connected!");
+
+        return queue;
     },
+
+    join: async (...args) => await subcommands.connect(...args),
 
     /**
      * Disconnect from a channel
@@ -355,11 +648,47 @@ const subcommands = {
         await context.message.reply("No existing connections found!");
     },
 
+    leave: async (...args) => await subcommands.disconnect(...args),
+    die: async (...args) => await subcommands.disconnect(...args),
+    cya: async (...args) => await subcommands.disconnect(...args),
+
+    next: async (context) => {
+        const { message } = context;
+
+        const guildId = message.guild.id;
+
+        if (!serverQueues.has(guildId)) return sendNotConnected(message);
+
+        const queue = serverQueues.get(guildId);
+
+        if (queue.hasNext()) { 
+            await queue.start(); 
+
+            const currentSong = queue.lastPlayed;
+
+            const hook = await getWebhook(message.channel);
+
+            const embed = new MessageEmbed();
+
+            embed.setTitle(`Now playing ${currentSong.title}`);
+            embed.setDescription(`Uploaded ${currentSong.uploadedAt} by ${currentSong.author.name}`);
+
+            embed.setImage(currentSong.bestThumbnail.url);
+
+            hook.send({
+                username: "Vibe Bot",
+                avatarURL: vibeImg,
+                embeds: [embed]
+            })
+        }
+        else queue.stop();
+    },
+    skip: async (...args) => await subcommands.next(...args),
 };
 
 module.exports = {
     data: {
-        name: "vibe",
+        name: "vibe|v",
         description: "Search, queue, and play music from Spotify."
     },
 

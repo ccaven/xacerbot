@@ -1,4 +1,4 @@
-const { sendHaha } = require("/home/pi/xacerbot/callbacks/messages/haha.js");
+ const { sendHaha } = require("/home/pi/xacerbot/callbacks/fun/haha.js");
 
 module.exports = {
     data: {

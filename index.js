@@ -3,6 +3,9 @@ const glob = require('glob');
 
 const { Client, Collection, Intents, Message } = require("discord.js");
 
+const { updateCache, CallbackBase } = require("/home/pi/xacerbot/helper/callbacks.js");
+const { runQuery } = require("/home/pi/xacerbot/database.js");
+
 const client = new Client({
     intents: [
         Intents.FLAGS.GUILDS,
@@ -24,7 +27,7 @@ const client = new Client({
 });
 
 /**
- * @type {Collection<string, Collection<string, any>>}
+ * @type {Collection<string, Collection<string, CallbackBase>>}
  */
 const callbacks = new Collection();
 
@@ -39,10 +42,13 @@ glob("/home/pi/xacerbot/callbacks/**/*", (_, res) => {
     const callbackFiles = res.filter(f => f.endsWith(".js"));
 
     for (const filename of callbackFiles) {
-        const callback = require(filename);
-        callback.initialize();
 
-        const type = callback.data.callback || "messageCreate";
+        /**
+         * @type {{callback: CallbackBase}}
+         */
+        const { callback } = require(filename);
+
+        const type = callback.data.callback;
 
         if (!callbacks.has(type)) { 
             callbacks.set(type, new Collection()); 
@@ -60,13 +66,11 @@ glob("/home/pi/xacerbot/callbacks/**/*", (_, res) => {
             return aValue - bValue;
         });
     });
-
+    
     callbackOrder.forEach((callbackArray, callbackType) => {
-        client.on(callbackType, async (...eventArguments) => {
+        client.on(callbackType, async (...eventArguments) => {           
             callbackArray.forEach(callbackName => {
-                callbacks.get(callbackType).get(callbackName).execute(...eventArguments).catch(err => {
-                    console.log(`Error running callback ${callbackName}: `, err);
-                });
+                callbacks.get(callbackType).get(callbackName).execute(...eventArguments);
             });    
         });
     });
