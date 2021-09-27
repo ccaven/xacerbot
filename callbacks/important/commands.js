@@ -1,4 +1,4 @@
-const { Message, Collection } = require("discord.js")
+const { Message, Collection, Permissions } = require("discord.js")
 const { CallbackBase } = require("/home/pi/xacerbot/helper/callbacks");
 const { runQuery } = require("/home/pi/xacerbot/database.js");
 const { readFileSync } = require("fs");
@@ -91,7 +91,7 @@ async function execute (message) {
         if (allowedPerms) {
             let allowed = false;
             for (const perm of allowedPerms) {
-                allowed |= message.member.permissions.has(djs.Permissions.FLAGS[perm]);
+                allowed |= message.member.permissions.has(Permissions.FLAGS[perm]);
             }
             if (!allowed) {
                 await message.reply("You don't have permissions to run this command!");

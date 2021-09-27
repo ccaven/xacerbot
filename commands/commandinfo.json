@@ -1,12 +1,24 @@
 {
+    "Economy": {
+        "description": "These commands relate to the byte economy"
+    },
     "Fun": {
         "description": "These are fun commands everyone can use"
     },
-    "Fun gifs": {
-        "description": "Make custom gifs :o"
+    "Generic": {
+        "description": "These are commands that are generic to any bot"
     },
-    "Fun voice": {
-        "description": "Run voice commands with the bot"
+    "Gpt": {
+        "description": "These commands have to do with GPT-J API"
+    },
+    "Image": {
+        "description": "These commands deal with image processing"
+    },
+    "Insult": {
+        "description": "Insult people!"
+    },
+    "Music": {
+        "description": "These commands relate to playing music"
     },
     "Moderation": {
         "description": "These are moderation commands only certain users can use",

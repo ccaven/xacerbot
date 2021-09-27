@@ -1,9 +1,9 @@
-const djs = require("discord.js");
+const { Message } = require("discord.js");
 
 const subcommands = {
     /**
      * 
-     * @param {{client: djs.Client, commands: djs.Collection<string, object>, message: djs.Message}} context 
+     * @param {{message: Message}} context 
      * @param {String} value 
      */
     "channel": async (context, value) => {
